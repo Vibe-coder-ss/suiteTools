@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL-First Excel Viewer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Top toolbar - always visible -->
+        <div class="toolbar">
+            <div class="toolbar-left">
+                <h1>📊 SQL-First Excel Viewer</h1>
+                <span class="toolbar-badge">Developer Friendly</span>
+            </div>
+            <div class="toolbar-right">
+                <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
+                    <span class="theme-icon-light">☀️</span>
+                    <span class="theme-icon-dark">🌙</span>
+                </button>
+                <button class="browse-btn" id="browseBtn">📁 Browse Files</button>
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
+                <button class="clear-btn" id="clearBtn" style="display: none;">✕ Clear</button>
+            </div>
+        </div>
+
+        <!-- File info bar - shown when file is loaded -->
+        <div class="file-info" id="fileInfo" style="display: none;">
+            <span class="file-name" id="fileName"></span>
+            <span class="file-size" id="fileSize"></span>
+            <span class="row-count" id="rowCount"></span>
+            <div class="edit-controls">
+                <button class="add-row-btn" id="addRowBtn" title="Add new row">➕ Add Row</button>
+                <div class="autosave-toggle" id="autosaveToggle" title="Auto-save changes to original file">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="autosaveCheckbox">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span class="toggle-label">Auto-save</span>
+                </div>
+            </div>
+            <div class="edit-indicator" id="editIndicator" style="display: none;">
+                <span class="edit-badge" id="editBadge">✏️ Edited</span>
+                <button class="save-btn" id="saveBtn" title="Save changes to file">💾 Save</button>
+                <button class="undo-all-btn" id="undoAllBtn" title="Undo all changes">↩️ Undo All</button>
+            </div>
+            <div class="save-status" id="saveStatus" style="display: none;">
+                <span class="save-icon">💾</span>
+                <span class="save-text" id="saveText">Saved</span>
+            </div>
+            <div class="file-actions">
+                <button class="export-btn" id="exportBtn">⬇️ Export</button>
+            </div>
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="🔍 Search...">
+            </div>
+            <button class="filter-toggle-btn" id="filterToggleBtn" title="Quick Filter">🔽 Filter</button>
+        </div>
+
+        <!-- Quick Filter Panel -->
+        <div class="quick-filter-panel" id="quickFilterPanel" style="display: none;">
+            <div class="filter-row" id="filterRows">
+                <div class="filter-group">
+                    <select class="filter-column" id="filterColumn">
+                        <option value="">Select Column...</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select class="filter-operator" id="filterOperator">
+                        <option value="equals">Equals</option>
+                        <option value="not_equals">Not Equals</option>
+                        <option value="contains">Contains</option>
+                        <option value="not_contains">Not Contains</option>
+                        <option value="starts_with">Starts With</option>
+                        <option value="ends_with">Ends With</option>
+                        <option value="greater_than">Greater Than</option>
+                        <option value="less_than">Less Than</option>
+                        <option value="greater_equal">Greater or Equal</option>
+                        <option value="less_equal">Less or Equal</option>
+                        <option value="is_empty">Is Empty</option>
+                        <option value="is_not_empty">Is Not Empty</option>
+                    </select>
+                </div>
+                <div class="filter-group filter-value-group">
+                    <input type="text" class="filter-value" id="filterValue" placeholder="Enter value...">
+                </div>
+                <div class="filter-actions">
+                    <button class="filter-apply-btn" id="filterApplyBtn">✓ Apply</button>
+                    <button class="filter-clear-btn" id="filterClearBtn">✕ Clear</button>
+                </div>
+            </div>
+            <div class="active-filters" id="activeFilters" style="display: none;">
+                <span class="active-filters-label">Active:</span>
+                <div class="filter-tags" id="filterTags"></div>
+            </div>
+        </div>
+
+        <!-- Sheet tabs - shown for multi-sheet Excel files -->
+        <div class="sheet-tabs" id="sheetTabs" style="display: none;"></div>
+
+        <!-- SQL Query Section -->
+        <div class="sql-section" id="sqlSection" style="display: none;">
+            <div class="sql-header">
+                <div class="sql-title">
+                    <span class="sql-icon">⚡</span>
+                    <span>SQL Query</span>
+                    <span class="sql-tables-hint" id="sqlTablesHint"></span>
+                </div>
+                <div class="sql-actions">
+                    <button class="sql-example-btn" id="sqlExamplesBtn">📚 Examples</button>
+                    <button class="sql-reset-btn" id="sqlResetBtn">↺ Reset</button>
+                    <button class="sql-run-btn" id="sqlRunBtn">▶ Run Query</button>
+                </div>
+            </div>
+            <div class="sql-editor-wrapper" id="sqlEditorWrapper">
+                <textarea id="sqlInput" class="sql-editor" placeholder="SELECT * FROM data WHERE column_name = 'value' ORDER BY column_name LIMIT 100" spellcheck="false"></textarea>
+                <div class="sql-editor-footer">
+                    <div class="sql-shortcuts">
+                        <kbd>Ctrl</kbd>+<kbd>Enter</kbd> to run
+                    </div>
+                    <div class="sql-editor-info">
+                        <span class="sql-line-count" id="sqlLineCount"></span>
+                        <button class="sql-expand-btn" id="sqlExpandBtn" title="Toggle expanded editor (or press Esc to close)">
+                            <span class="expand-icon">⤢</span>
+                            <span class="collapse-icon" style="display:none">⤡</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="sql-examples-panel" id="sqlExamplesPanel" style="display: none;">
+                <div class="examples-section">
+                    <h4>📋 Available Tables</h4>
+                    <div class="tables-list" id="tablesListPanel"></div>
+                </div>
+                <div class="examples-section">
+                    <h4>📝 SELECT & MODIFY Queries</h4>
+                    <div class="examples-grid" id="basicExamples"></div>
+                </div>
+                <div class="examples-section" id="joinExamplesSection" style="display: none;">
+                    <h4>🔗 JOIN Queries (Multiple Sheets)</h4>
+                    <div class="examples-grid" id="joinExamples"></div>
+                </div>
+                <div class="sql-modify-note">
+                    <strong>💡 Tip:</strong> UPDATE, INSERT, DELETE queries modify your data directly. Use <code>Ctrl+S</code> to save or enable Auto-save.
+                </div>
+            </div>
+            <div class="sql-result-bar" id="sqlResultBar" style="display: none;">
+                <div class="sql-result-info">
+                    <span class="result-icon">📊</span>
+                    <span class="result-text" id="sqlResultText"></span>
+                </div>
+                <button class="sql-export-btn" id="sqlExportResultsBtn">⬇️ Export Results</button>
+            </div>
+            <div class="sql-status" id="sqlStatus"></div>
+        </div>
+
+        <!-- Upload section - shown initially, hidden when file is loaded -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-area" id="dropZone">
+                <div class="upload-icon">📁</div>
+                <h3>Drag & Drop your file here</h3>
+                <p>or click "Browse Files" above</p>
+                <p class="file-types">Supports: CSV, XLSX, XLS</p>
+                <div class="sql-feature-badge">
+                    <span>⚡ Query & Edit with Auto-Save</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table container -->
+        <div class="table-container" id="tableContainer" style="display: none;"></div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>⬇️ Export Data</h2>
+                <button class="modal-close" id="modalClose">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Sheet Selection -->
+                <div class="form-group">
+                    <label>Select Sheets to Export:</label>
+                    <div class="sheet-selection" id="sheetSelection">
+                        <label class="radio-option">
+                            <input type="radio" name="sheetOption" value="current" checked>
+                            <span class="radio-label">Current Sheet Only</span>
+                            <span class="sheet-name-badge" id="currentSheetName"></span>
+                        </label>
+                        <label class="radio-option" id="allSheetsOption">
+                            <input type="radio" name="sheetOption" value="all">
+                            <span class="radio-label">All Sheets</span>
+                            <span class="sheet-count-badge" id="sheetCountBadge"></span>
+                        </label>
+                        <div class="sheets-checklist" id="sheetsChecklist" style="display: none;">
+                            <label class="radio-option">
+                                <input type="radio" name="sheetOption" value="selected">
+                                <span class="radio-label">Select Specific Sheets:</span>
+                            </label>
+                            <div class="checkbox-list" id="sheetCheckboxes"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Format Selection -->
+                <div class="form-group">
+                    <label>Export Format:</label>
+                    <div class="format-grid" id="formatGrid">
+                        <button class="format-option selected" data-format="xlsx">
+                            <span class="format-icon">📊</span>
+                            <span class="format-name">Excel</span>
+                            <span class="format-ext">.xlsx</span>
+                        </button>
+                        <button class="format-option" data-format="xls">
+                            <span class="format-icon">📗</span>
+                            <span class="format-name">Excel 97-03</span>
+                            <span class="format-ext">.xls</span>
+                        </button>
+                        <button class="format-option" data-format="csv">
+                            <span class="format-icon">📄</span>
+                            <span class="format-name">CSV</span>
+                            <span class="format-ext">.csv</span>
+                        </button>
+                        <button class="format-option" data-format="json">
+                            <span class="format-icon">📋</span>
+                            <span class="format-name">JSON</span>
+                            <span class="format-ext">.json</span>
+                        </button>
+                        <button class="format-option" data-format="html">
+                            <span class="format-icon">🌐</span>
+                            <span class="format-name">HTML</span>
+                            <span class="format-ext">.html</span>
+                        </button>
+                    </div>
+                    <p class="format-note" id="formatNote"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancel" id="exportCancel">Cancel</button>
+                <button class="btn-export" id="exportConfirm">⬇️ Export</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SheetJS library for Excel support -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <!-- AlaSQL for SQL query support -->
+    <script src="https://cdn.jsdelivr.net/npm/alasql@4.3.0/dist/alasql.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+Name,Email,Department,Salary,Start Date,Status
+John Smith,john.smith@example.com,Engineering,85000,2022-01-15,Active
+Sarah Johnson,sarah.j@example.com,Marketing,72000,2021-06-20,Active
+Michael Brown,m.brown@example.com,Sales,68000,2020-03-10,Active
+Emily Davis,emily.d@example.com,Engineering,92000,2019-11-05,Active
+David Wilson,d.wilson@example.com,HR,65000,2023-02-28,Active
+Jessica Martinez,j.martinez@example.com,Engineering,88000,2021-09-12,Active
+Christopher Lee,c.lee@example.com,Finance,78000,2022-07-01,Active
+Amanda Taylor,a.taylor@example.com,Marketing,70000,2020-12-15,On Leave
+Daniel Anderson,d.anderson@example.com,Sales,75000,2019-04-22,Active
+Jennifer Thomas,j.thomas@example.com,Engineering,95000,2018-08-30,Active
+Robert Jackson,r.jackson@example.com,HR,62000,2023-05-10,Active
+Michelle White,m.white@example.com,Finance,82000,2021-01-25,Active
+William Harris,w.harris@example.com,Engineering,90000,2020-06-18,Active
+Elizabeth Clark,e.clark@example.com,Marketing,74000,2022-04-05,Active
+James Lewis,j.lewis@example.com,Sales,71000,2019-10-12,Inactive
