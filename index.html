@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SQL-First Excel Viewer</title>
+    <title>SuiteTools - Spreadsheet & Document Editor</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,26 +11,34 @@
         <!-- Top toolbar - always visible -->
         <div class="toolbar">
             <div class="toolbar-left">
-                <h1>📊 SQL-First Excel Viewer</h1>
-                <span class="toolbar-badge">Developer Friendly</span>
+                <h1>🛠️ SuiteTools</h1>
+                <span class="toolbar-badge">Spreadsheet & Docs</span>
             </div>
             <div class="toolbar-right">
                 <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
                     <span class="theme-icon-light">☀️</span>
                     <span class="theme-icon-dark">🌙</span>
                 </button>
+                <div class="create-dropdown">
+                    <button class="create-new-btn" id="createDropdownBtn" title="Create new file">✨ Create New ▾</button>
+                    <div class="create-dropdown-menu" id="createDropdownMenu">
+                        <button class="create-option" id="createSheetBtn">📊 New Spreadsheet</button>
+                        <button class="create-option" id="createDocBtn">📄 New Document</button>
+                    </div>
+                </div>
                 <button class="browse-btn" id="browseBtn">📁 Browse Files</button>
-                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.doc,.docx" hidden>
                 <button class="clear-btn" id="clearBtn" style="display: none;">✕ Clear</button>
             </div>
         </div>
 
-        <!-- File info bar - shown when file is loaded -->
+        <!-- File info bar - shown when spreadsheet is loaded -->
         <div class="file-info" id="fileInfo" style="display: none;">
             <span class="file-name" id="fileName"></span>
             <span class="file-size" id="fileSize"></span>
             <span class="row-count" id="rowCount"></span>
             <div class="edit-controls">
+                <button class="add-col-btn" id="addColBtn" title="Add new column">➕ Add Column</button>
                 <button class="add-row-btn" id="addRowBtn" title="Add new row">➕ Add Row</button>
                 <div class="autosave-toggle" id="autosaveToggle" title="Auto-save changes to original file">
                     <label class="toggle-switch">
@@ -56,6 +64,19 @@
                 <input type="text" id="searchInput" placeholder="🔍 Search...">
             </div>
             <button class="filter-toggle-btn" id="filterToggleBtn" title="Quick Filter">🔽 Filter</button>
+        </div>
+
+        <!-- Document info bar - shown when document is loaded -->
+        <div class="file-info doc-info" id="docInfo" style="display: none;">
+            <span class="file-name" id="docFileName"></span>
+            <span class="file-size" id="docFileSize"></span>
+            <div class="doc-edit-indicator" id="docEditIndicator" style="display: none;">
+                <span class="edit-badge">✏️ Edited</span>
+                <button class="save-btn" id="docSaveBtn" title="Save document">💾 Save</button>
+            </div>
+            <div class="file-actions">
+                <button class="export-btn" id="docExportBtn">⬇️ Export</button>
+            </div>
         </div>
 
         <!-- Quick Filter Panel -->
@@ -161,15 +182,110 @@
                 <div class="upload-icon">📁</div>
                 <h3>Drag & Drop your file here</h3>
                 <p>or click "Browse Files" above</p>
-                <p class="file-types">Supports: CSV, XLSX, XLS</p>
+                <p class="file-types">Supports: CSV, XLSX, XLS, DOC, DOCX</p>
                 <div class="sql-feature-badge">
-                    <span>⚡ Query & Edit with Auto-Save</span>
+                    <span>⚡ Edit Spreadsheets & Documents</span>
+                </div>
+            </div>
+            <div class="upload-divider">
+                <span>or create new</span>
+            </div>
+            <div class="create-new-section">
+                <div class="create-options-grid">
+                    <button class="create-new-large-btn" id="createNewLargeBtn">
+                        <span class="create-icon">📊</span>
+                        <span class="create-text">New Spreadsheet</span>
+                        <span class="create-hint">Create tables with rows & columns</span>
+                    </button>
+                    <button class="create-new-large-btn create-doc-btn" id="createDocLargeBtn">
+                        <span class="create-icon">📄</span>
+                        <span class="create-text">New Document</span>
+                        <span class="create-hint">Write and format text documents</span>
+                    </button>
                 </div>
             </div>
         </div>
 
-        <!-- Table container -->
+        <!-- Table container (for spreadsheets) -->
         <div class="table-container" id="tableContainer" style="display: none;"></div>
+
+        <!-- Document editor container -->
+        <div class="document-container" id="documentContainer" style="display: none;">
+            <!-- Document Toolbar -->
+            <div class="doc-toolbar" id="docToolbar">
+                <div class="doc-toolbar-group">
+                    <button class="doc-tool-btn" data-command="undo" title="Undo (Ctrl+Z)">↩️</button>
+                    <button class="doc-tool-btn" data-command="redo" title="Redo (Ctrl+Y)">↪️</button>
+                </div>
+                <div class="doc-toolbar-divider"></div>
+                <div class="doc-toolbar-group">
+                    <select class="doc-font-select" id="fontSelect" title="Font Family">
+                        <option value="Arial">Arial</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Comic Sans MS">Comic Sans MS</option>
+                    </select>
+                    <select class="doc-size-select" id="sizeSelect" title="Font Size">
+                        <option value="1">8</option>
+                        <option value="2">10</option>
+                        <option value="3" selected>12</option>
+                        <option value="4">14</option>
+                        <option value="5">18</option>
+                        <option value="6">24</option>
+                        <option value="7">36</option>
+                    </select>
+                </div>
+                <div class="doc-toolbar-divider"></div>
+                <div class="doc-toolbar-group">
+                    <button class="doc-tool-btn" data-command="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+                    <button class="doc-tool-btn" data-command="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+                    <button class="doc-tool-btn" data-command="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+                    <button class="doc-tool-btn" data-command="strikeThrough" title="Strikethrough"><s>S</s></button>
+                </div>
+                <div class="doc-toolbar-divider"></div>
+                <div class="doc-toolbar-group">
+                    <input type="color" class="doc-color-picker" id="textColorPicker" value="#000000" title="Text Color">
+                    <input type="color" class="doc-color-picker" id="bgColorPicker" value="#ffffff" title="Highlight Color">
+                </div>
+                <div class="doc-toolbar-divider"></div>
+                <div class="doc-toolbar-group">
+                    <button class="doc-tool-btn" data-command="justifyLeft" title="Align Left">⬅️</button>
+                    <button class="doc-tool-btn" data-command="justifyCenter" title="Align Center">⬆️</button>
+                    <button class="doc-tool-btn" data-command="justifyRight" title="Align Right">➡️</button>
+                    <button class="doc-tool-btn" data-command="justifyFull" title="Justify">☰</button>
+                </div>
+                <div class="doc-toolbar-divider"></div>
+                <div class="doc-toolbar-group">
+                    <button class="doc-tool-btn" data-command="insertUnorderedList" title="Bullet List">•</button>
+                    <button class="doc-tool-btn" data-command="insertOrderedList" title="Numbered List">1.</button>
+                    <button class="doc-tool-btn" data-command="indent" title="Increase Indent">→|</button>
+                    <button class="doc-tool-btn" data-command="outdent" title="Decrease Indent">|←</button>
+                </div>
+                <div class="doc-toolbar-divider"></div>
+                <div class="doc-toolbar-group">
+                    <button class="doc-tool-btn" id="insertLinkBtn" title="Insert Link">🔗</button>
+                    <button class="doc-tool-btn" id="insertImageBtn" title="Insert Image">🖼️</button>
+                    <button class="doc-tool-btn" data-command="insertHorizontalRule" title="Horizontal Line">—</button>
+                </div>
+                <div class="doc-toolbar-divider"></div>
+                <div class="doc-toolbar-group">
+                    <button class="doc-tool-btn" data-command="removeFormat" title="Clear Formatting">🚫</button>
+                </div>
+            </div>
+            <!-- Document Editor -->
+            <div class="doc-editor-wrapper">
+                <div class="doc-editor" id="docEditor" contenteditable="true" spellcheck="true">
+                    <p>Start typing your document here...</p>
+                </div>
+            </div>
+            <!-- Document Status Bar -->
+            <div class="doc-status-bar">
+                <span class="doc-word-count" id="docWordCount">0 words</span>
+                <span class="doc-char-count" id="docCharCount">0 characters</span>
+            </div>
+        </div>
     </div>
 
     <!-- Export Modal -->
@@ -248,6 +364,21 @@
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- AlaSQL for SQL query support -->
     <script src="https://cdn.jsdelivr.net/npm/alasql@4.3.0/dist/alasql.min.js"></script>
-    <script src="app.js"></script>
+    <!-- Mammoth.js for DOCX support -->
+    <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+    <!-- docx library for creating DOCX files -->
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.2.2/build/index.umd.min.js"></script>
+    
+    <!-- Application Modules -->
+    <script src="js/state.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/theme.js"></script>
+    <script src="js/dom.js"></script>
+    <script src="js/filter.js"></script>
+    <script src="js/sql.js"></script>
+    <script src="js/spreadsheet.js"></script>
+    <script src="js/document.js"></script>
+    <script src="js/file-handler.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>

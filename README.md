@@ -1,19 +1,36 @@
-# 📊 SQL-First Excel Viewer
+# 🛠️ SuiteTools - Spreadsheet & Document Editor
 
-A developer-friendly, browser-based tool to view and query CSV/Excel files using SQL.
+A developer-friendly, browser-based tool to create, view, edit, and query spreadsheets and documents.
 
 ## Features
 
+### 📊 Spreadsheet Features
+- ✅ **Create New Spreadsheets** - Start from scratch and build your own
 - ✅ **SQL Queries** - Filter and analyze data using SQL syntax
-- ✅ **Dark/Light Mode** - Toggle between themes (auto-saves preference)
-- ✅ **Drag & Drop** - Simply drag files onto the page
+- ✅ **Edit Cells** - Double-click to edit any cell
+- ✅ **Add/Remove Rows & Columns** - Dynamically modify your data
+- ✅ **Rename Columns** - Double-click headers to rename
 - ✅ **Multi-Sheet Support** - View and switch between Excel sheets
 - ✅ **CSV Support** - Handles CSV with various delimiters
-- ✅ **Excel Support** - Reads .xlsx and .xls files
+- ✅ **Excel Support** - Reads and writes .xlsx and .xls files
 - ✅ **Export Options** - Convert between CSV, Excel, JSON, HTML
-- ✅ **Export SQL Results** - Export query results in any format
-- ✅ **Search/Filter** - Quick text search across all columns
+
+### 📄 Document Features
+- ✅ **Create New Documents** - Start with a blank document
+- ✅ **Rich Text Editing** - Bold, italic, underline, strikethrough
+- ✅ **Font Styling** - Change font family, size, and color
+- ✅ **Text Alignment** - Left, center, right, justify
+- ✅ **Lists** - Bullet and numbered lists
+- ✅ **Links & Images** - Insert hyperlinks and images
+- ✅ **Open DOCX Files** - View and edit Word documents
+- ✅ **Export Options** - Save as DOCX, HTML, or plain text
+
+### 🎨 General Features
+- ✅ **Dark/Light Mode** - Toggle between themes (auto-saves preference)
+- ✅ **Drag & Drop** - Simply drag files onto the page
+- ✅ **Keyboard Shortcuts** - Ctrl+S to save, Ctrl+B/I/U for formatting
 - ✅ **No Upload Required** - Files are processed locally in your browser
+- ✅ **Auto-Save** - Enable auto-save for spreadsheets (when opened via Browse)
 
 ## SQL Query Examples
 
@@ -114,21 +131,55 @@ Then open your browser to: **http://localhost:PORT**
 ## Project Structure
 
 ```
-├── index.html      # Main HTML page
-├── styles.css      # Styling
-├── app.js          # Application logic
-├── server.py       # Simple Python server
-├── sample.csv      # Sample data for testing
-└── README.md       # This file
+├── index.html          # Main HTML page
+├── styles.css          # Styling
+├── js/                 # Modular JavaScript files
+│   ├── state.js        # Global state management
+│   ├── utils.js        # Utility functions
+│   ├── theme.js        # Dark/light theme handling
+│   ├── dom.js          # DOM element references
+│   ├── filter.js       # Quick filter functionality
+│   ├── sql.js          # SQL query engine
+│   ├── spreadsheet.js  # Spreadsheet operations
+│   ├── document.js     # Document editor
+│   ├── file-handler.js # File import/export
+│   └── main.js         # App initialization & event handlers
+├── server.py           # Simple Python server
+├── sample.csv          # Sample data for testing
+└── README.md           # This file
 ```
+
+### Module Descriptions
+
+| Module | Description |
+|--------|-------------|
+| `state.js` | Centralized state management for the entire app |
+| `utils.js` | Helper functions (formatting, parsing, downloads) |
+| `theme.js` | Dark/light mode toggle functionality |
+| `dom.js` | Cached DOM element references |
+| `filter.js` | Quick filter panel and search functionality |
+| `sql.js` | SQL query execution and table management |
+| `spreadsheet.js` | Table rendering, cell editing, row/column operations |
+| `document.js` | Rich text editor for documents |
+| `file-handler.js` | File parsing (CSV, Excel, DOCX) and export |
+| `main.js` | Event listeners and app initialization |
 
 ## How It Works
 
+### Spreadsheets
 1. Open the app in your browser
-2. Drag & drop a CSV/Excel file or click "Browse Files"
-3. View your data in a clean, sortable table
-4. Use the search box to filter rows
-5. Click "Clear" to reset and load a new file
+2. Click **"✨ Create New → New Spreadsheet"** or drag & drop a CSV/Excel file
+3. Add columns and rows using the toolbar buttons
+4. Double-click cells to edit, double-click headers to rename
+5. Use SQL queries to filter and analyze data
+6. Export in your preferred format
+
+### Documents
+1. Click **"✨ Create New → New Document"** or drag & drop a DOCX file
+2. Start typing - it's a full rich text editor
+3. Use the toolbar to format text (bold, italic, fonts, colors, etc.)
+4. Insert links and images as needed
+5. Save as DOCX, HTML, or plain text
 
 ## Browser Compatibility
 
@@ -137,7 +188,11 @@ Works in all modern browsers:
 
 ## Dependencies
 
-- [SheetJS](https://sheetjs.com/) - For Excel file parsing (loaded from CDN)
+All dependencies are loaded from CDN:
+- [SheetJS](https://sheetjs.com/) - For Excel file parsing
+- [AlaSQL](https://alasql.org/) - For SQL query support
+- [Mammoth.js](https://github.com/mwilliamson/mammoth.js) - For reading DOCX files
+- [docx](https://docx.js.org/) - For creating DOCX files
 
 ## License
 
