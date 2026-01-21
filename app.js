@@ -27,12 +27,21 @@ themeToggle.addEventListener('click', toggleTheme);
 
 // Global keyboard shortcuts
 document.addEventListener('keydown', (e) => {
-    // Ctrl+S to save
-    if (e.ctrlKey && e.key === 's') {
+    // Ctrl/Cmd + S to save
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        if (hasUnsavedChanges) {
+        
+        // Skip if already handled by document editor
+        if (e.target === docEditor) {
+            return;
+        }
+        
+        if (currentMode === 'document') {
+            saveDocument();
+        } else if (currentMode === 'spreadsheet') {
             saveFile();
         }
+        return false;
     }
 });
 
@@ -88,6 +97,10 @@ let headers = [];
 let allSheets = [];        // Store all sheets data
 let currentSheetIndex = 0; // Track active sheet
 let currentFile = null;    // Store file reference
+let currentMode = 'none';  // 'spreadsheet', 'document', or 'none'
+let docHasUnsavedChanges = false; // Track document edits
+let originalDocContent = ''; // Store original doc content for undo
+let docFileHandle = null; // Store document file handle for saving
 
 // Event Listeners
 dropZone.addEventListener('click', (e) => {
@@ -117,6 +130,142 @@ exportBtn.addEventListener('click', openExportModal);
 modalClose.addEventListener('click', closeExportModal);
 exportCancel.addEventListener('click', closeExportModal);
 exportConfirm.addEventListener('click', confirmExport);
+
+// Create New dropdown handlers
+const createDropdownBtn = document.getElementById('createDropdownBtn');
+const createDropdownMenu = document.getElementById('createDropdownMenu');
+
+createDropdownBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    createDropdownMenu.classList.toggle('show');
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', () => {
+    createDropdownMenu.classList.remove('show');
+});
+
+// Create new spreadsheet
+document.getElementById('createSheetBtn').addEventListener('click', () => {
+    createDropdownMenu.classList.remove('show');
+    createEmptySpreadsheet();
+});
+
+// Create new document
+document.getElementById('createDocBtn').addEventListener('click', () => {
+    createDropdownMenu.classList.remove('show');
+    createEmptyDocument();
+});
+
+// Large buttons in upload section
+document.getElementById('createNewLargeBtn').addEventListener('click', createEmptySpreadsheet);
+document.getElementById('createDocLargeBtn').addEventListener('click', createEmptyDocument);
+
+// Add column button
+document.getElementById('addColBtn').addEventListener('click', addNewColumn);
+
+// Document editor elements
+const documentContainer = document.getElementById('documentContainer');
+const docEditor = document.getElementById('docEditor');
+const docInfo = document.getElementById('docInfo');
+const docToolbar = document.getElementById('docToolbar');
+
+// Document toolbar handlers
+docToolbar.addEventListener('click', (e) => {
+    const btn = e.target.closest('.doc-tool-btn');
+    if (btn && btn.dataset.command) {
+        e.preventDefault();
+        document.execCommand(btn.dataset.command, false, null);
+        docEditor.focus();
+        updateToolbarState();
+        markDocAsEdited();
+    }
+});
+
+// Font family select
+document.getElementById('fontSelect').addEventListener('change', (e) => {
+    document.execCommand('fontName', false, e.target.value);
+    docEditor.focus();
+    markDocAsEdited();
+});
+
+// Font size select
+document.getElementById('sizeSelect').addEventListener('change', (e) => {
+    document.execCommand('fontSize', false, e.target.value);
+    docEditor.focus();
+    markDocAsEdited();
+});
+
+// Text color picker
+document.getElementById('textColorPicker').addEventListener('input', (e) => {
+    document.execCommand('foreColor', false, e.target.value);
+    docEditor.focus();
+    markDocAsEdited();
+});
+
+// Background color picker
+document.getElementById('bgColorPicker').addEventListener('input', (e) => {
+    document.execCommand('hiliteColor', false, e.target.value);
+    docEditor.focus();
+    markDocAsEdited();
+});
+
+// Insert link button
+document.getElementById('insertLinkBtn').addEventListener('click', () => {
+    const url = prompt('Enter URL:', 'https://');
+    if (url) {
+        document.execCommand('createLink', false, url);
+        docEditor.focus();
+        markDocAsEdited();
+    }
+});
+
+// Insert image button
+document.getElementById('insertImageBtn').addEventListener('click', () => {
+    const url = prompt('Enter image URL:', 'https://');
+    if (url) {
+        document.execCommand('insertImage', false, url);
+        docEditor.focus();
+        markDocAsEdited();
+    }
+});
+
+// Document editor input handler
+docEditor.addEventListener('input', () => {
+    markDocAsEdited();
+    updateDocStats();
+});
+
+// Document editor keyboard shortcuts
+docEditor.addEventListener('keydown', (e) => {
+    // Ctrl/Cmd + S - prevent default browser save and save document
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        e.stopPropagation();
+        // Use setTimeout to ensure any pending input events complete first
+        setTimeout(() => saveDocument(), 0);
+        return false;
+    }
+    
+    // Let other formatting shortcuts work naturally (Ctrl+B, I, U)
+    // They're handled by the browser's contenteditable, but mark as edited
+    if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) {
+        setTimeout(() => {
+            markDocAsEdited();
+            updateToolbarState();
+        }, 10);
+    }
+});
+
+// Update toolbar state on selection change
+docEditor.addEventListener('mouseup', updateToolbarState);
+docEditor.addEventListener('keyup', updateToolbarState);
+
+// Document save button
+document.getElementById('docSaveBtn').addEventListener('click', saveDocument);
+
+// Document export button
+document.getElementById('docExportBtn').addEventListener('click', exportDocument);
 
 // Close modal on overlay click
 exportModal.addEventListener('click', (e) => {
@@ -162,6 +311,9 @@ tableContainer.addEventListener('dblclick', handleCellDoubleClick);
 
 // Column header click for sorting
 tableContainer.addEventListener('click', handleHeaderClick);
+
+// Column header double-click for renaming
+tableContainer.addEventListener('dblclick', handleHeaderDoubleClick);
 
 // Quick Filter controls
 const filterToggleBtn = document.getElementById('filterToggleBtn');
@@ -347,12 +499,29 @@ async function openFileWithHandle() {
                         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
                         'application/vnd.ms-excel': ['.xls']
                     }
+                },
+                {
+                    description: 'Document Files',
+                    accept: {
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                        'application/msword': ['.doc']
+                    }
                 }
             ]
         });
         
-        fileHandle = handle;
         const file = await handle.getFile();
+        const ext = '.' + file.name.split('.').pop().toLowerCase();
+        
+        // Store appropriate handle based on file type
+        if (['.doc', '.docx'].includes(ext)) {
+            docFileHandle = handle;
+            fileHandle = null;
+        } else {
+            fileHandle = handle;
+            docFileHandle = null;
+        }
+        
         processFile(file);
         
     } catch (err) {
@@ -366,31 +535,49 @@ async function openFileWithHandle() {
 
 // Process uploaded file
 function processFile(file) {
-    const validTypes = ['.csv', '.xlsx', '.xls'];
+    const spreadsheetTypes = ['.csv', '.xlsx', '.xls'];
+    const documentTypes = ['.doc', '.docx'];
     const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
     
-    if (!validTypes.includes(fileExtension)) {
-        alert('Please upload a CSV or Excel file (.csv, .xlsx, .xls)');
+    const allValidTypes = [...spreadsheetTypes, ...documentTypes];
+    
+    if (!allValidTypes.includes(fileExtension)) {
+        alert('Please upload a supported file (.csv, .xlsx, .xls, .doc, .docx)');
         return;
     }
 
     // Show loading state
     uploadSection.style.display = 'none';
-    tableContainer.style.display = 'block';
-    tableContainer.innerHTML = '<div class="loading">Processing file</div>';
 
     const reader = new FileReader();
 
-    if (fileExtension === '.csv') {
+    if (spreadsheetTypes.includes(fileExtension)) {
+        // Handle spreadsheet files
+        tableContainer.style.display = 'block';
+        tableContainer.innerHTML = '<div class="loading">Processing file</div>';
+        documentContainer.style.display = 'none';
+        
+        if (fileExtension === '.csv') {
+            reader.onload = (e) => {
+                const text = e.target.result;
+                parseCSV(text, file);
+            };
+            reader.readAsText(file);
+        } else {
+            reader.onload = (e) => {
+                const data = new Uint8Array(e.target.result);
+                parseExcel(data, file);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    } else if (documentTypes.includes(fileExtension)) {
+        // Handle document files
+        documentContainer.style.display = 'flex';
+        tableContainer.style.display = 'none';
+        
         reader.onload = (e) => {
-            const text = e.target.result;
-            parseCSV(text, file);
-        };
-        reader.readAsText(file);
-    } else {
-        reader.onload = (e) => {
-            const data = new Uint8Array(e.target.result);
-            parseExcel(data, file);
+            const arrayBuffer = e.target.result;
+            parseDocument(arrayBuffer, file);
         };
         reader.readAsArrayBuffer(file);
     }
@@ -568,6 +755,9 @@ function renderSheetTabs() {
 
 // Display data in table
 function displayData(file) {
+    // Set mode
+    currentMode = 'spreadsheet';
+    
     // Update file info
     const canSaveBack = fileHandle !== null;
     fileName.textContent = '📄 ' + file.name + (canSaveBack ? ' ✓' : '');
@@ -575,10 +765,12 @@ function displayData(file) {
     fileSize.textContent = formatFileSize(file.size);
     rowCount.textContent = `${currentData.length} rows × ${headers.length} columns`;
     
-    // Show file info, SQL section, and table; hide upload section
+    // Show file info, SQL section, and table; hide upload section and document
     fileInfo.style.display = 'flex';
+    docInfo.style.display = 'none';
     sqlSection.style.display = 'block';
     tableContainer.style.display = 'block';
+    documentContainer.style.display = 'none';
     uploadSection.style.display = 'none';
     clearBtn.style.display = 'inline-block';
     
@@ -627,13 +819,14 @@ function updateSqlPlaceholder() {
 
 // Render table with data
 function renderTable(data, isFiltered = false) {
-    if (data.length === 0) {
+    if (data.length === 0 && headers.length === 0) {
         tableContainer.innerHTML = '<p class="placeholder-text">No data to display</p>';
         return;
     }
 
-    // Check if this is the original unfiltered data
-    const isOriginalData = !isFiltered && !hasSqlResults && data === currentData;
+    // Check if this is the original unfiltered data (editable)
+    // When isFiltered is false and no SQL results, the data is editable
+    const isOriginalData = !isFiltered && !hasSqlResults;
     
     let html = '<div class="table-wrapper"><table class="data-table" id="dataTable">';
     
@@ -645,34 +838,50 @@ function renderTable(data, isFiltered = false) {
         const sortIcon = isSorted 
             ? (sortDirection === 'asc' ? '↑' : '↓') 
             : '⇅';
-        html += `<th data-col="${colIndex}" class="${sortClass}" title="Click to sort">${escapeHtml(header)}<span class="sort-icon">${sortIcon}</span></th>`;
+        html += `<th data-col="${colIndex}" class="${sortClass}" title="Click to sort • Double-click to rename">${escapeHtml(header)}<span class="sort-icon">${sortIcon}</span></th>`;
     });
     html += '</tr></thead>';
 
     // Body
     html += '<tbody>';
-    data.forEach((row, displayIndex) => {
-        // Find original row index in the sheet data
-        const originalRowIndex = isOriginalData ? displayIndex : findOriginalRowIndex(row);
-        const canEdit = isOriginalData && originalRowIndex !== -1;
-        
-        html += `<tr data-row="${displayIndex}" data-original-row="${originalRowIndex}">`;
-        html += `<td class="row-num">
-            <span class="row-number">${displayIndex + 1}</span>
-            ${canEdit ? `<button class="delete-row-btn" data-original-row="${originalRowIndex}" title="Delete row">🗑️</button>` : ''}
-        </td>`;
-        headers.forEach((_, colIndex) => {
-            const value = row[colIndex] || '';
-            const editAttr = canEdit ? `data-original-row="${originalRowIndex}"` : '';
-            const editTitle = canEdit ? 'Double-click to edit' : 'Cannot edit filtered/SQL results';
-            const editClass = canEdit ? 'editable' : 'readonly';
-            html += `<td data-row="${displayIndex}" data-col="${colIndex}" ${editAttr} class="${editClass}" title="${editTitle}">${escapeHtml(value)}</td>`;
+    if (data.length === 0) {
+        // No rows yet - show helpful message
+        html += `<tr class="empty-row-message">
+            <td colspan="${headers.length + 1}" class="empty-table-cell">
+                <span>No rows yet.</span>
+                <button class="inline-add-row-btn" id="inlineAddRowBtn">➕ Add Row</button>
+            </td>
+        </tr>`;
+    } else {
+        data.forEach((row, displayIndex) => {
+            // Find original row index in the sheet data
+            const originalRowIndex = isOriginalData ? displayIndex : findOriginalRowIndex(row);
+            const canEdit = isOriginalData && originalRowIndex !== -1;
+            
+            html += `<tr data-row="${displayIndex}" data-original-row="${originalRowIndex}">`;
+            html += `<td class="row-num">
+                <span class="row-number">${displayIndex + 1}</span>
+                ${canEdit ? `<button class="delete-row-btn" data-original-row="${originalRowIndex}" title="Delete row">🗑️</button>` : ''}
+            </td>`;
+            headers.forEach((_, colIndex) => {
+                const value = row[colIndex] || '';
+                const editAttr = canEdit ? `data-original-row="${originalRowIndex}"` : '';
+                const editTitle = canEdit ? 'Double-click to edit' : 'Cannot edit filtered/SQL results';
+                const editClass = canEdit ? 'editable' : 'readonly';
+                html += `<td data-row="${displayIndex}" data-col="${colIndex}" ${editAttr} class="${editClass}" title="${editTitle}">${escapeHtml(value)}</td>`;
+            });
+            html += '</tr>';
         });
-        html += '</tr>';
-    });
+    }
     html += '</tbody></table></div>';
 
     tableContainer.innerHTML = html;
+    
+    // Bind inline add row button if present
+    const inlineAddRowBtn = document.getElementById('inlineAddRowBtn');
+    if (inlineAddRowBtn) {
+        inlineAddRowBtn.addEventListener('click', addNewRow);
+    }
 }
 
 // Find original row index by matching row data
@@ -703,6 +912,9 @@ function handleHeaderClick(e) {
     const th = e.target.closest('th.sortable');
     if (!th) return;
     
+    // Don't sort if we're in edit mode
+    if (th.classList.contains('editing')) return;
+    
     const colIndex = parseInt(th.dataset.col);
     if (isNaN(colIndex)) return;
     
@@ -722,6 +934,116 @@ function handleHeaderClick(e) {
     
     // Sort and re-render
     sortAndRenderTable();
+}
+
+// Handle header double-click for renaming
+function handleHeaderDoubleClick(e) {
+    const th = e.target.closest('th.sortable');
+    if (!th || th.classList.contains('editing')) return;
+    
+    if (hasSqlResults) {
+        showToast('Cannot rename columns in SQL results. Reset first.', 'warning');
+        return;
+    }
+    
+    const colIndex = parseInt(th.dataset.col);
+    if (isNaN(colIndex)) return;
+    
+    e.stopPropagation();
+    startHeaderEdit(th, colIndex);
+}
+
+// Start editing a header
+function startHeaderEdit(th, colIndex) {
+    const currentValue = headers[colIndex] || '';
+    
+    // Store original data for undo if not already stored
+    if (!hasUnsavedChanges) {
+        storeOriginalData();
+    }
+    
+    th.classList.add('editing');
+    
+    // Remove sort icon temporarily
+    const sortIcon = th.querySelector('.sort-icon');
+    const sortIconHtml = sortIcon ? sortIcon.outerHTML : '';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'header-editor';
+    input.value = currentValue;
+    
+    th.innerHTML = '';
+    th.appendChild(input);
+    input.focus();
+    input.select();
+    
+    // Handle blur (save)
+    input.addEventListener('blur', () => {
+        finishHeaderEdit(th, input, colIndex, sortIconHtml);
+    });
+    
+    // Handle keyboard
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        } else if (e.key === 'Escape') {
+            // Cancel edit
+            th.classList.remove('editing');
+            th.innerHTML = escapeHtml(currentValue) + sortIconHtml;
+        } else if (e.key === 'Tab') {
+            e.preventDefault();
+            input.blur();
+            // Move to next/prev column header
+            const nextColIndex = e.shiftKey ? colIndex - 1 : colIndex + 1;
+            if (nextColIndex >= 0 && nextColIndex < headers.length) {
+                const nextTh = document.querySelector(`th[data-col="${nextColIndex}"]`);
+                if (nextTh) {
+                    setTimeout(() => startHeaderEdit(nextTh, nextColIndex), 50);
+                }
+            }
+        }
+    });
+    
+    // Prevent click from triggering sort
+    input.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+}
+
+// Finish editing a header
+function finishHeaderEdit(th, input, colIndex, sortIconHtml) {
+    const newValue = input.value.trim();
+    const oldValue = headers[colIndex] || '';
+    
+    // Use default name if empty
+    const finalValue = newValue || `Column ${String.fromCharCode(65 + colIndex)}`;
+    
+    // Update headers
+    headers[colIndex] = finalValue;
+    allSheets[currentSheetIndex].headers[colIndex] = finalValue;
+    
+    // Update cell display
+    th.classList.remove('editing');
+    
+    // Determine sort state for this column
+    const isSorted = sortColumn === colIndex;
+    const sortClass = isSorted ? `sortable sorted-${sortDirection}` : 'sortable';
+    const sortIcon = isSorted 
+        ? (sortDirection === 'asc' ? '↑' : '↓') 
+        : '⇅';
+    
+    th.innerHTML = escapeHtml(finalValue) + `<span class="sort-icon">${sortIcon}</span>`;
+    
+    // Mark as changed if value changed
+    if (finalValue !== oldValue) {
+        markAsEdited();
+        sqlTablesRegistered = false;
+        
+        // Update SQL placeholder with new column names
+        updateSqlPlaceholder();
+    }
 }
 
 // Sort data and render table
@@ -1230,6 +1552,12 @@ function addNewRow() {
     
     if (allSheets.length === 0) return;
     
+    // Check if there are columns first
+    if (headers.length === 0) {
+        showToast('Add columns first before adding rows', 'warning');
+        return;
+    }
+    
     // Clear search first
     if (searchInput.value.trim()) {
         searchInput.value = '';
@@ -1243,15 +1571,13 @@ function addNewRow() {
     // Create empty row
     const newRow = headers.map(() => '');
     
-    // Add to original sheet data first
-    allSheets[currentSheetIndex].data.push([...newRow]);
-    
-    // Reload current data from sheet
-    currentData = allSheets[currentSheetIndex].data.map(row => [...row]);
+    // Add to data (currentData and allSheets[].data should be same reference for new sheets)
+    currentData.push(newRow);
+    allSheets[currentSheetIndex].data = currentData;
     
     // Re-render
     renderTable(currentData);
-    rowCount.textContent = `${currentData.length} rows × ${headers.length} columns`;
+    updateRowColCount();
     
     // Mark as edited
     markAsEdited();
@@ -2351,12 +2677,13 @@ function showExportSuccess(filename) {
 // Clear all data
 function clearData() {
     // Warn about unsaved changes
-    if (hasUnsavedChanges) {
+    if (hasUnsavedChanges || docHasUnsavedChanges) {
         if (!confirm('You have unsaved changes. Are you sure you want to clear?')) {
             return;
         }
     }
     
+    // Clear spreadsheet data
     currentData = [];
     headers = [];
     allSheets = [];
@@ -2371,6 +2698,14 @@ function clearData() {
     autoSaveEnabled = false;
     activeFilters = [];
     resetSort();
+    
+    // Clear document data
+    currentMode = 'none';
+    docHasUnsavedChanges = false;
+    originalDocContent = '';
+    docFileHandle = null;
+    docEditor.innerHTML = '<p></p>';
+    
     document.getElementById('autosaveCheckbox').checked = false;
     document.getElementById('quickFilterPanel').style.display = 'none';
     document.getElementById('filterToggleBtn').classList.remove('active');
@@ -2379,9 +2714,11 @@ function clearData() {
     searchInput.value = '';
     sqlInput.value = '';
     
-    // Hide file info, table, SQL section, and sheet tabs; show upload section
+    // Hide all content sections; show upload section
     fileInfo.style.display = 'none';
+    docInfo.style.display = 'none';
     document.getElementById('editIndicator').style.display = 'none';
+    document.getElementById('docEditIndicator').style.display = 'none';
     document.getElementById('saveStatus').style.display = 'none';
     sqlSection.style.display = 'none';
     sqlStatus.className = 'sql-status';
@@ -2389,6 +2726,7 @@ function clearData() {
     hideSqlResultBar();
     tableContainer.style.display = 'none';
     tableContainer.innerHTML = '';
+    documentContainer.style.display = 'none';
     sheetTabs.style.display = 'none';
     sheetTabs.innerHTML = '';
     uploadSection.style.display = 'flex';
@@ -2412,4 +2750,688 @@ function escapeHtml(text) {
 
 function escapeRegex(string) {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ==========================================
+// DOCUMENT EDITOR FUNCTIONALITY
+// ==========================================
+
+// Parse document file (DOCX)
+async function parseDocument(arrayBuffer, file) {
+    try {
+        const result = await mammoth.convertToHtml({ arrayBuffer: arrayBuffer });
+        const html = result.value;
+        
+        // Display the document
+        currentFile = file;
+        currentMode = 'document';
+        originalDocContent = html;
+        docHasUnsavedChanges = false;
+        
+        docEditor.innerHTML = html || '<p>Start typing your document here...</p>';
+        
+        displayDocument(file);
+        updateDocStats();
+        
+        if (result.messages.length > 0) {
+            console.log('Document conversion messages:', result.messages);
+        }
+        
+    } catch (error) {
+        console.error('Error parsing document:', error);
+        alert('Error reading document file. Please try again.');
+        clearData();
+    }
+}
+
+// Display document UI
+function displayDocument(file) {
+    // Update document info bar
+    const canSaveBack = docFileHandle !== null;
+    document.getElementById('docFileName').textContent = '📄 ' + file.name + (canSaveBack ? ' ✓' : '');
+    document.getElementById('docFileSize').textContent = formatFileSize(file.size);
+    
+    // Show document UI, hide spreadsheet UI
+    docInfo.style.display = 'flex';
+    fileInfo.style.display = 'none';
+    sqlSection.style.display = 'none';
+    tableContainer.style.display = 'none';
+    documentContainer.style.display = 'flex';
+    uploadSection.style.display = 'none';
+    clearBtn.style.display = 'inline-block';
+    sheetTabs.style.display = 'none';
+    
+    // Reset edit indicator
+    document.getElementById('docEditIndicator').style.display = 'none';
+    
+    // Focus editor
+    docEditor.focus();
+}
+
+// Create empty document
+function createEmptyDocument() {
+    // Warn about unsaved changes
+    if (hasUnsavedChanges || docHasUnsavedChanges) {
+        if (!confirm('You have unsaved changes. Creating a new document will clear them. Continue?')) {
+            return;
+        }
+    }
+    
+    // Clear spreadsheet data
+    clearDataSilent();
+    
+    // Set up new document
+    currentMode = 'document';
+    currentFile = { name: 'new_document.docx', size: 0 };
+    originalDocContent = '';
+    docHasUnsavedChanges = true;
+    docFileHandle = null; // No handle for new files
+    
+    // Set empty content with placeholder
+    docEditor.innerHTML = '<p></p>';
+    
+    // Update UI
+    document.getElementById('docFileName').textContent = '📄 new_document.docx (New)';
+    document.getElementById('docFileSize').textContent = 'New Document';
+    
+    // Show document UI
+    docInfo.style.display = 'flex';
+    fileInfo.style.display = 'none';
+    sqlSection.style.display = 'none';
+    tableContainer.style.display = 'none';
+    documentContainer.style.display = 'flex';
+    uploadSection.style.display = 'none';
+    clearBtn.style.display = 'inline-block';
+    sheetTabs.style.display = 'none';
+    
+    // Show edit indicator for new docs
+    document.getElementById('docEditIndicator').style.display = 'flex';
+    
+    // Focus editor
+    docEditor.focus();
+    updateDocStats();
+    
+    showToast('New document created! Start typing to add content.', 'success');
+}
+
+// Mark document as edited
+function markDocAsEdited() {
+    if (!docHasUnsavedChanges) {
+        docHasUnsavedChanges = true;
+        document.getElementById('docEditIndicator').style.display = 'flex';
+    }
+}
+
+// Update document statistics
+function updateDocStats() {
+    const text = docEditor.innerText || '';
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const chars = text.length;
+    
+    document.getElementById('docWordCount').textContent = `${words} word${words !== 1 ? 's' : ''}`;
+    document.getElementById('docCharCount').textContent = `${chars} character${chars !== 1 ? 's' : ''}`;
+}
+
+// Update toolbar button states based on current selection
+function updateToolbarState() {
+    const commands = ['bold', 'italic', 'underline', 'strikeThrough', 
+                      'justifyLeft', 'justifyCenter', 'justifyRight', 'justifyFull',
+                      'insertUnorderedList', 'insertOrderedList'];
+    
+    commands.forEach(command => {
+        const btn = document.querySelector(`.doc-tool-btn[data-command="${command}"]`);
+        if (btn) {
+            if (document.queryCommandState(command)) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        }
+    });
+}
+
+// Save document
+async function saveDocument() {
+    if (currentMode !== 'document') {
+        return;
+    }
+    
+    try {
+        // Check if we have a valid file handle to save to
+        if (docFileHandle !== null && docFileHandle !== undefined) {
+            // Try to save to existing file
+            try {
+                await saveDocumentToHandle();
+                onDocumentSaveSuccess();
+                return;
+            } catch (handleError) {
+                console.warn('Could not save to existing handle, will prompt for new location:', handleError);
+                // Handle might be invalid, try with picker
+                docFileHandle = null;
+            }
+        }
+        
+        // No valid handle - need to create new file
+        if ('showSaveFilePicker' in window) {
+            await saveDocumentWithPicker();
+            onDocumentSaveSuccess();
+        } else {
+            // Fallback - just download the file
+            await exportDocumentAsDocx();
+            onDocumentSaveSuccess();
+        }
+        
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            // User cancelled the save dialog
+            return;
+        }
+        console.error('Save error:', error);
+        showToast('Failed to save document: ' + error.message, 'error');
+    }
+}
+
+// Called when document save is successful
+function onDocumentSaveSuccess() {
+    docHasUnsavedChanges = false;
+    document.getElementById('docEditIndicator').style.display = 'none';
+    showToast('Document saved!', 'success');
+    
+    // Update file name display
+    const docFileNameEl = document.getElementById('docFileName');
+    if (currentFile) {
+        docFileNameEl.textContent = '📄 ' + currentFile.name + (docFileHandle ? ' ✓' : '');
+    }
+}
+
+// Save document using File System Access API picker (first time save)
+async function saveDocumentWithPicker() {
+    const fileName = currentFile?.name?.replace(/\.[^/.]+$/, '') || 'document';
+    
+    const handle = await window.showSaveFilePicker({
+        suggestedName: `${fileName}.docx`,
+        types: [{
+            description: 'Word Document',
+            accept: { 'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'] }
+        }]
+    });
+    
+    // Store the handle globally for future saves
+    docFileHandle = handle;
+    currentFile = { name: handle.name, size: 0 };
+    
+    // Actually save the content
+    await saveDocumentToHandle();
+    
+    // Update the file name display
+    document.getElementById('docFileName').textContent = '📄 ' + handle.name + ' ✓';
+    document.getElementById('docFileSize').textContent = 'Saved';
+}
+
+// Save document to existing file handle
+async function saveDocumentToHandle() {
+    if (!docFileHandle) {
+        throw new Error('No file handle available');
+    }
+    
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
+    
+    // Get HTML content and convert to DOCX
+    const htmlContent = docEditor.innerHTML;
+    const paragraphs = htmlToDocxParagraphs(htmlContent);
+    
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: paragraphs
+        }]
+    });
+    
+    const blob = await Packer.toBlob(doc);
+    
+    // Write to file handle
+    const writable = await docFileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+}
+
+// Export document
+function exportDocument() {
+    if (!currentFile) {
+        showToast('No document to export', 'error');
+        return;
+    }
+    
+    const format = prompt('Export format:\n1. DOCX (Word)\n2. HTML\n3. TXT (Plain Text)\n\nEnter 1, 2, or 3:', '1');
+    
+    switch (format) {
+        case '1':
+            exportDocumentAsDocx();
+            break;
+        case '2':
+            exportDocumentAsHtml();
+            break;
+        case '3':
+            exportDocumentAsText();
+            break;
+        default:
+            if (format !== null) {
+                showToast('Invalid format selected', 'warning');
+            }
+    }
+}
+
+// Export as DOCX
+async function exportDocumentAsDocx() {
+    const fileName = currentFile?.name?.replace(/\.[^/.]+$/, '') || 'document';
+    
+    // Get HTML content and convert to DOCX using docx library
+    const htmlContent = docEditor.innerHTML;
+    
+    // Create a simple DOCX document
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docx;
+    
+    // Parse HTML and create paragraphs
+    const paragraphs = htmlToDocxParagraphs(htmlContent);
+    
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: paragraphs
+        }]
+    });
+    
+    const blob = await Packer.toBlob(doc);
+    downloadBlobFile(blob, `${fileName}.docx`);
+}
+
+// Convert HTML to DOCX paragraphs
+function htmlToDocxParagraphs(html) {
+    const { Paragraph, TextRun, HeadingLevel } = docx;
+    const paragraphs = [];
+    
+    // Create a temporary element to parse HTML
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    
+    // Process each child node
+    const processNode = (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            const text = node.textContent;
+            if (text.trim()) {
+                paragraphs.push(new Paragraph({
+                    children: [new TextRun(text)]
+                }));
+            }
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+            const tagName = node.tagName.toLowerCase();
+            const text = node.innerText || '';
+            
+            switch (tagName) {
+                case 'h1':
+                    paragraphs.push(new Paragraph({
+                        text: text,
+                        heading: HeadingLevel.HEADING_1
+                    }));
+                    break;
+                case 'h2':
+                    paragraphs.push(new Paragraph({
+                        text: text,
+                        heading: HeadingLevel.HEADING_2
+                    }));
+                    break;
+                case 'h3':
+                    paragraphs.push(new Paragraph({
+                        text: text,
+                        heading: HeadingLevel.HEADING_3
+                    }));
+                    break;
+                case 'p':
+                case 'div':
+                    const runs = [];
+                    parseInlineElements(node, runs);
+                    if (runs.length > 0) {
+                        paragraphs.push(new Paragraph({ children: runs }));
+                    }
+                    break;
+                case 'ul':
+                case 'ol':
+                    node.querySelectorAll('li').forEach(li => {
+                        paragraphs.push(new Paragraph({
+                            children: [new TextRun('• ' + li.innerText)]
+                        }));
+                    });
+                    break;
+                case 'br':
+                    paragraphs.push(new Paragraph({ children: [] }));
+                    break;
+                default:
+                    // Process children
+                    node.childNodes.forEach(child => processNode(child));
+            }
+        }
+    };
+    
+    temp.childNodes.forEach(child => processNode(child));
+    
+    // Ensure at least one paragraph
+    if (paragraphs.length === 0) {
+        paragraphs.push(new Paragraph({ children: [new TextRun('')] }));
+    }
+    
+    return paragraphs;
+}
+
+// Parse inline elements for text runs
+function parseInlineElements(node, runs) {
+    const { TextRun } = docx;
+    
+    node.childNodes.forEach(child => {
+        if (child.nodeType === Node.TEXT_NODE) {
+            const text = child.textContent;
+            if (text) {
+                runs.push(new TextRun(text));
+            }
+        } else if (child.nodeType === Node.ELEMENT_NODE) {
+            const tagName = child.tagName.toLowerCase();
+            const text = child.innerText || '';
+            
+            let options = { text: text };
+            
+            if (tagName === 'b' || tagName === 'strong') {
+                options.bold = true;
+            } else if (tagName === 'i' || tagName === 'em') {
+                options.italics = true;
+            } else if (tagName === 'u') {
+                options.underline = {};
+            } else if (tagName === 's' || tagName === 'strike') {
+                options.strike = true;
+            }
+            
+            if (text) {
+                runs.push(new TextRun(options));
+            }
+        }
+    });
+}
+
+// Export as HTML
+function exportDocumentAsHtml() {
+    const fileName = currentFile?.name?.replace(/\.[^/.]+$/, '') || 'document';
+    const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${fileName}</title>
+    <style>
+        body {
+            font-family: 'Times New Roman', serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+${docEditor.innerHTML}
+</body>
+</html>`;
+    
+    downloadBlob(htmlContent, `${fileName}.html`, 'text/html;charset=utf-8;');
+}
+
+// Export as plain text
+function exportDocumentAsText() {
+    const fileName = currentFile?.name?.replace(/\.[^/.]+$/, '') || 'document';
+    const textContent = docEditor.innerText || '';
+    
+    downloadBlob(textContent, `${fileName}.txt`, 'text/plain;charset=utf-8;');
+}
+
+// Helper to download blob as file
+function downloadBlobFile(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showExportSuccess(filename);
+}
+
+// ==========================================
+// CREATE NEW SPREADSHEET FUNCTIONALITY
+// ==========================================
+
+// Create empty spreadsheet with default columns
+function createEmptySpreadsheet() {
+    // Warn about unsaved changes
+    if (hasUnsavedChanges || docHasUnsavedChanges) {
+        if (!confirm('You have unsaved changes. Creating a new spreadsheet will clear them. Continue?')) {
+            return;
+        }
+    }
+    
+    // Clear any existing data
+    clearDataSilent();
+    
+    // Set mode
+    currentMode = 'spreadsheet';
+    
+    // Default configuration - start completely empty
+    const sheetName = 'Sheet1';
+    const fileName = 'new_spreadsheet.xlsx';
+    
+    // Set up empty sheet - no columns, no rows
+    headers = [];
+    currentData = [];
+    
+    // Create sheet structure
+    allSheets = [{
+        name: sheetName,
+        headers: headers,
+        data: currentData
+    }];
+    
+    currentSheetIndex = 0;
+    
+    // Create a virtual file object
+    currentFile = {
+        name: fileName,
+        size: 0
+    };
+    
+    // No file handle for new files - will download on save
+    fileHandle = null;
+    
+    // Display the new spreadsheet
+    displayNewSpreadsheet(fileName);
+    
+    showToast('New spreadsheet created! Add columns and rows to get started.', 'success');
+}
+
+// Display the newly created spreadsheet
+function displayNewSpreadsheet(fileName) {
+    // Update file info bar
+    const fileNameEl = document.getElementById('fileName');
+    fileNameEl.textContent = '📄 ' + fileName + ' (New)';
+    fileNameEl.title = 'New file - will be downloaded when saving';
+    
+    document.getElementById('fileSize').textContent = 'New File';
+    updateRowColCount();
+    
+    // Show UI elements
+    fileInfo.style.display = 'flex';
+    sqlSection.style.display = 'block';
+    tableContainer.style.display = 'block';
+    uploadSection.style.display = 'none';
+    clearBtn.style.display = 'inline-block';
+    
+    // Hide sheet tabs for single sheet
+    sheetTabs.style.display = 'none';
+    
+    // New files start as "unsaved" since user needs to save them
+    hasUnsavedChanges = true;
+    document.getElementById('editIndicator').style.display = 'flex';
+    document.getElementById('saveStatus').style.display = 'none';
+    
+    // Can't auto-save new files (no file handle)
+    const autosaveToggle = document.getElementById('autosaveToggle');
+    autosaveToggle.style.display = 'none';
+    autosaveToggle.title = 'Auto-save not available for new files. Save to create the file first.';
+    document.getElementById('autosaveCheckbox').checked = false;
+    autoSaveEnabled = false;
+    
+    // Reset sort and filter states
+    resetSort();
+    activeFilters = [];
+    updateActiveFiltersUI();
+    
+    // Render the empty state or table
+    renderTableOrEmpty();
+}
+
+// Update row/column count display
+function updateRowColCount() {
+    const colCount = headers.length;
+    const rowCount = currentData.length;
+    
+    if (colCount === 0 && rowCount === 0) {
+        document.getElementById('rowCount').textContent = 'Empty sheet';
+    } else {
+        document.getElementById('rowCount').textContent = `${rowCount} rows × ${colCount} columns`;
+    }
+}
+
+// Render table or show empty state message
+function renderTableOrEmpty() {
+    if (headers.length === 0) {
+        // Show empty state with instructions
+        tableContainer.innerHTML = `
+            <div class="empty-sheet-message">
+                <div class="empty-icon">📋</div>
+                <h3>Empty Spreadsheet</h3>
+                <p>Start building your spreadsheet:</p>
+                <div class="empty-actions">
+                    <button class="empty-action-btn" id="emptyAddColBtn">
+                        <span>➕</span> Add Column
+                    </button>
+                </div>
+                <p class="empty-hint">Add columns first, then add rows to enter data</p>
+            </div>
+        `;
+        
+        // Bind the button
+        document.getElementById('emptyAddColBtn').addEventListener('click', addNewColumn);
+        
+        // Hide SQL section when empty
+        sqlSection.style.display = 'none';
+    } else {
+        // Show SQL section
+        sqlSection.style.display = 'block';
+        registerSqlTables();
+        updateSqlPlaceholder();
+        
+        // Render the table
+        renderTable(currentData);
+    }
+}
+
+// Add new column
+function addNewColumn() {
+    if (allSheets.length === 0) {
+        showToast('No spreadsheet loaded', 'warning');
+        return;
+    }
+    
+    if (hasSqlResults) {
+        showToast('Cannot add columns to SQL results. Reset first.', 'warning');
+        return;
+    }
+    
+    // Generate new column name
+    const newColIndex = headers.length;
+    const newColName = `Column ${String.fromCharCode(65 + (newColIndex % 26))}${newColIndex >= 26 ? Math.floor(newColIndex / 26) : ''}`;
+    
+    // Prompt for column name
+    const colName = prompt('Enter column name:', newColName);
+    if (colName === null) return; // User cancelled
+    
+    const finalColName = colName.trim() || newColName;
+    
+    // Store original data for undo if not already stored
+    if (!hasUnsavedChanges) {
+        storeOriginalData();
+    }
+    
+    // Add to headers
+    headers.push(finalColName);
+    allSheets[currentSheetIndex].headers = headers;
+    
+    // Add empty cell to each existing row
+    allSheets[currentSheetIndex].data.forEach(row => {
+        row.push('');
+    });
+    currentData.forEach(row => {
+        row.push('');
+    });
+    
+    // Re-render (handles empty state too)
+    renderTableOrEmpty();
+    updateRowColCount();
+    
+    // Mark as edited
+    markAsEdited();
+    sqlTablesRegistered = false;
+    
+    showToast(`Added column: ${finalColName}`, 'success');
+}
+
+// Clear data without confirmation (for internal use)
+function clearDataSilent() {
+    // Clear spreadsheet data
+    currentData = [];
+    headers = [];
+    allSheets = [];
+    currentSheetIndex = 0;
+    currentFile = null;
+    fileHandle = null;
+    sqlTablesRegistered = false;
+    hasSqlResults = false;
+    sqlResultData = null;
+    hasUnsavedChanges = false;
+    originalSheetData = [];
+    autoSaveEnabled = false;
+    activeFilters = [];
+    resetSort();
+    
+    // Clear document data
+    docHasUnsavedChanges = false;
+    originalDocContent = '';
+    docFileHandle = null;
+    
+    document.getElementById('autosaveCheckbox').checked = false;
+    document.getElementById('quickFilterPanel').style.display = 'none';
+    document.getElementById('filterToggleBtn').classList.remove('active');
+    document.getElementById('activeFilters').style.display = 'none';
+    fileInput.value = '';
+    searchInput.value = '';
+    sqlInput.value = '';
+    
+    // Reset UI elements
+    document.getElementById('editIndicator').style.display = 'none';
+    document.getElementById('docEditIndicator').style.display = 'none';
+    document.getElementById('saveStatus').style.display = 'none';
+    sqlStatus.className = 'sql-status';
+    sqlExamplesPanel.style.display = 'none';
+    hideSqlResultBar();
+    tableContainer.innerHTML = '';
+    sheetTabs.style.display = 'none';
+    sheetTabs.innerHTML = '';
+    docInfo.style.display = 'none';
+    documentContainer.style.display = 'none';
 }
