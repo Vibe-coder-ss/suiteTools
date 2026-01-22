@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SuiteTools - Spreadsheet & Document Editor</title>
+    <title>SuiteTools - Spreadsheet, Document & Slides Editor</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,8 +11,8 @@
         <!-- Top toolbar - always visible -->
         <div class="toolbar">
             <div class="toolbar-left">
-                <h1>🛠️ SuiteTools</h1>
-                <span class="toolbar-badge">Spreadsheet & Docs</span>
+                <h1 class="app-logo" id="appLogo" title="Return to home">🛠️ SuiteTools</h1>
+                <span class="toolbar-badge">Sheets, Docs & Slides</span>
             </div>
             <div class="toolbar-right">
                 <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
@@ -24,10 +24,11 @@
                     <div class="create-dropdown-menu" id="createDropdownMenu">
                         <button class="create-option" id="createSheetBtn">📊 New Spreadsheet</button>
                         <button class="create-option" id="createDocBtn">📄 New Document</button>
+                        <button class="create-option" id="createSlidesBtn">📽️ New Presentation</button>
                     </div>
                 </div>
                 <button class="browse-btn" id="browseBtn">📁 Browse Files</button>
-                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.doc,.docx" hidden>
+                <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.doc,.docx,.pptx,.ppt" hidden>
                 <button class="clear-btn" id="clearBtn" style="display: none;">✕ Clear</button>
             </div>
         </div>
@@ -76,6 +77,32 @@
             </div>
             <div class="file-actions">
                 <button class="export-btn" id="docExportBtn">⬇️ Export</button>
+            </div>
+        </div>
+
+        <!-- Slides info bar - shown when presentation is loaded -->
+        <div class="file-info slides-info" id="slidesInfo" style="display: none;">
+            <span class="file-name" id="slidesFileName"></span>
+            <span class="file-size" id="slidesFileSize"></span>
+            <div class="slides-edit-indicator" id="slidesEditIndicator" style="display: none;">
+                <span class="edit-badge">✏️ Edited</span>
+                <button class="save-btn" id="slidesSaveBtn" title="Save presentation">💾 Save</button>
+            </div>
+            <div class="slides-controls">
+                <button class="slide-nav-btn" id="prevSlideBtn" title="Previous slide (←)">◀</button>
+                <span class="slide-counter" id="slideCounter">1 / 1</span>
+                <button class="slide-nav-btn" id="nextSlideBtn" title="Next slide (→)">▶</button>
+            </div>
+            <div class="slides-toolbar">
+                <button class="slide-tool-btn" id="addSlideBtn" title="Add new slide">➕ Add</button>
+                <button class="slide-tool-btn" id="duplicateSlideBtn" title="Duplicate current slide">📋 Duplicate</button>
+                <button class="slide-tool-btn" id="moveSlideUpBtn" title="Move slide up">⬆️</button>
+                <button class="slide-tool-btn" id="moveSlideDownBtn" title="Move slide down">⬇️</button>
+                <button class="slide-tool-btn danger" id="deleteSlideBtn" title="Delete current slide">🗑️</button>
+            </div>
+            <div class="file-actions">
+                <button class="slideshow-btn" id="slideshowBtn" title="Start slideshow (F5)">▶️ Slideshow</button>
+                <button class="export-btn" id="slidesExportBtn">⬇️ Export</button>
             </div>
         </div>
 
@@ -178,30 +205,57 @@
 
         <!-- Upload section - shown initially, hidden when file is loaded -->
         <div class="upload-section" id="uploadSection">
-            <div class="upload-area" id="dropZone">
-                <div class="upload-icon">📁</div>
-                <h3>Drag & Drop your file here</h3>
-                <p>or click "Browse Files" above</p>
-                <p class="file-types">Supports: CSV, XLSX, XLS, DOC, DOCX</p>
-                <div class="sql-feature-badge">
-                    <span>⚡ Edit Spreadsheets & Documents</span>
+            <div class="home-panels">
+                <!-- Open File Panel -->
+                <div class="home-panel open-panel">
+                    <div class="home-panel-header">
+                        <span class="home-panel-icon">📂</span>
+                        <h3>Open File</h3>
+                    </div>
+                    <div class="upload-area" id="dropZone">
+                        <div class="upload-icon">📁</div>
+                        <h4>Drag & Drop your file here</h4>
+                        <p>or click to browse</p>
+                        <p class="file-types">CSV, XLSX, XLS, DOC, DOCX, PPT, PPTX</p>
+                    </div>
                 </div>
-            </div>
-            <div class="upload-divider">
-                <span>or create new</span>
-            </div>
-            <div class="create-new-section">
-                <div class="create-options-grid">
-                    <button class="create-new-large-btn" id="createNewLargeBtn">
-                        <span class="create-icon">📊</span>
-                        <span class="create-text">New Spreadsheet</span>
-                        <span class="create-hint">Create tables with rows & columns</span>
-                    </button>
-                    <button class="create-new-large-btn create-doc-btn" id="createDocLargeBtn">
-                        <span class="create-icon">📄</span>
-                        <span class="create-text">New Document</span>
-                        <span class="create-hint">Write and format text documents</span>
-                    </button>
+
+                <div class="home-divider">
+                    <span>or</span>
+                </div>
+
+                <!-- Create New Panel -->
+                <div class="home-panel create-panel">
+                    <div class="home-panel-header">
+                        <span class="home-panel-icon">✨</span>
+                        <h3>Create New</h3>
+                    </div>
+                    <div class="create-options-list">
+                        <button class="create-option-btn" id="createNewLargeBtn">
+                            <span class="create-option-icon">📊</span>
+                            <div class="create-option-info">
+                                <span class="create-option-title">Spreadsheet</span>
+                                <span class="create-option-desc">Tables with rows & columns</span>
+                            </div>
+                            <span class="create-option-arrow">→</span>
+                        </button>
+                        <button class="create-option-btn" id="createDocLargeBtn">
+                            <span class="create-option-icon">📄</span>
+                            <div class="create-option-info">
+                                <span class="create-option-title">Document</span>
+                                <span class="create-option-desc">Write and format text</span>
+                            </div>
+                            <span class="create-option-arrow">→</span>
+                        </button>
+                        <button class="create-option-btn" id="createSlidesLargeBtn">
+                            <span class="create-option-icon">📽️</span>
+                            <div class="create-option-info">
+                                <span class="create-option-title">Presentation</span>
+                                <span class="create-option-desc">Slideshows & presentations</span>
+                            </div>
+                            <span class="create-option-arrow">→</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -286,6 +340,188 @@
                 <span class="doc-char-count" id="docCharCount">0 characters</span>
             </div>
         </div>
+
+        <!-- Slides container -->
+        <div class="slides-container" id="slidesContainer" style="display: none;">
+            <!-- Slides thumbnails sidebar -->
+            <div class="slides-sidebar">
+                <div class="slides-sidebar-header">
+                    <span>📽️ Slides</span>
+                </div>
+                <div class="slides-thumbnails" id="slidesThumbnails">
+                    <!-- Thumbnails will be rendered here -->
+                </div>
+            </div>
+            <!-- Main slide viewer -->
+            <div class="slides-main">
+                <div class="slides-viewer" id="slidesViewer">
+                    <!-- Current slide will be rendered here -->
+                </div>
+                <div class="slides-status-bar">
+                    <span class="slides-hint">Click text to edit • ← → to navigate • Ctrl+D to duplicate • Ctrl+S to save</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slides Export Modal -->
+    <div class="modal-overlay" id="slidesExportModal">
+        <div class="modal slides-export-modal">
+            <div class="modal-header">
+                <h3>📽️ Export Presentation</h3>
+                <button class="modal-close" id="slidesExportModalClose">×</button>
+            </div>
+            <div class="modal-body">
+                <p class="export-description">Choose export format:</p>
+                <div class="slides-export-options">
+                    <button class="slides-export-option" id="exportPptxBtn">
+                        <span class="export-icon">📊</span>
+                        <span class="export-label">PowerPoint</span>
+                        <span class="export-ext">.pptx</span>
+                    </button>
+                    <button class="slides-export-option" id="exportPdfBtn">
+                        <span class="export-icon">📄</span>
+                        <span class="export-label">PDF Document</span>
+                        <span class="export-ext">.pdf</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Draggable Color Picker Panel -->
+    <div class="color-picker-panel" id="colorPickerPanel">
+        <div class="color-picker-header" id="colorPickerHeader">
+            <span class="color-picker-title">🎨 Slide Style</span>
+            <button class="color-picker-close" id="colorPickerClose">✕</button>
+        </div>
+        <div class="color-picker-body">
+            <!-- Text Color Section -->
+            <div class="color-picker-section">
+                <span class="color-section-label">✏️ Text Color</span>
+                <div class="color-picker-main">
+                    <input type="color" id="slideTextColorInput" value="#1a1a2e">
+                    <span class="color-picker-value" id="textColorPickerValue">#1a1a2e</span>
+                    <button class="auto-color-btn" id="autoTextColorBtn" title="Auto-detect based on background">Auto</button>
+                </div>
+                <div class="text-color-presets">
+                    <button class="color-preset text-preset" data-color="#1a1a2e" style="background: #1a1a2e;" title="Dark"></button>
+                    <button class="color-preset text-preset" data-color="#333333" style="background: #333333;" title="Charcoal"></button>
+                    <button class="color-preset text-preset" data-color="#ffffff" style="background: #ffffff;" title="White"></button>
+                    <button class="color-preset text-preset" data-color="#f8f9fa" style="background: #f8f9fa;" title="Off-White"></button>
+                    <button class="color-preset text-preset" data-color="#667eea" style="background: #667eea;" title="Purple"></button>
+                    <button class="color-preset text-preset" data-color="#e94560" style="background: #e94560;" title="Red"></button>
+                </div>
+            </div>
+            
+            <!-- Background Image Section -->
+            <div class="color-picker-section">
+                <span class="color-section-label">🖼️ Background Image</span>
+                <div class="bg-image-controls">
+                    <div class="bg-image-preview" id="bgImagePreview">
+                        <span class="bg-image-placeholder">No image</span>
+                    </div>
+                    <div class="bg-image-buttons">
+                        <label class="bg-image-btn upload" title="Upload image">
+                            📷 Upload
+                            <input type="file" id="bgImageInput" accept="image/*" hidden>
+                        </label>
+                        <button class="bg-image-btn remove" id="bgImageRemove" title="Remove image">🗑️ Remove</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Background Color Section -->
+            <div class="color-picker-section">
+                <span class="color-section-label">🎨 Background Color</span>
+                <div class="color-picker-main">
+                    <input type="color" id="slideBgColorInput" value="#ffffff">
+                    <span class="color-picker-value" id="colorPickerValue">#ffffff</span>
+                </div>
+                <div class="color-picker-presets">
+                    <button class="color-preset bg-preset" data-color="#ffffff" style="background: #ffffff;" title="White"></button>
+                    <button class="color-preset bg-preset" data-color="#f8f9fa" style="background: #f8f9fa;" title="Light Gray"></button>
+                    <button class="color-preset bg-preset" data-color="#e9ecef" style="background: #e9ecef;" title="Gray"></button>
+                    <button class="color-preset bg-preset" data-color="#212529" style="background: #212529;" title="Dark"></button>
+                    <button class="color-preset bg-preset" data-color="#1a1a2e" style="background: #1a1a2e;" title="Navy Dark"></button>
+                    <button class="color-preset bg-preset" data-color="#0f3460" style="background: #0f3460;" title="Deep Blue"></button>
+                    <button class="color-preset bg-preset" data-color="#e94560" style="background: #e94560;" title="Red"></button>
+                    <button class="color-preset bg-preset" data-color="#ff6b6b" style="background: #ff6b6b;" title="Coral"></button>
+                    <button class="color-preset bg-preset" data-color="#feca57" style="background: #feca57;" title="Yellow"></button>
+                    <button class="color-preset bg-preset" data-color="#48dbfb" style="background: #48dbfb;" title="Cyan"></button>
+                    <button class="color-preset bg-preset" data-color="#1dd1a1" style="background: #1dd1a1;" title="Mint"></button>
+                    <button class="color-preset bg-preset" data-color="#5f27cd" style="background: #5f27cd;" title="Purple"></button>
+                </div>
+            </div>
+            
+            <!-- Gradients Section -->
+            <div class="color-picker-section">
+                <span class="color-section-label">🌈 Gradients</span>
+                <div class="gradient-presets">
+                    <button class="gradient-preset" data-gradient="linear-gradient(135deg, #667eea 0%, #764ba2 100%)" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" title="Purple Gradient"></button>
+                    <button class="gradient-preset" data-gradient="linear-gradient(135deg, #f093fb 0%, #f5576c 100%)" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);" title="Pink Gradient"></button>
+                    <button class="gradient-preset" data-gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);" title="Blue Gradient"></button>
+                    <button class="gradient-preset" data-gradient="linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);" title="Green Gradient"></button>
+                    <button class="gradient-preset" data-gradient="linear-gradient(135deg, #fa709a 0%, #fee140 100%)" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);" title="Sunset Gradient"></button>
+                    <button class="gradient-preset" data-gradient="linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)" style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);" title="Soft Gradient"></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fullscreen Slideshow Mode -->
+    <div class="slideshow-overlay" id="slideshowOverlay">
+        <div class="slideshow-container" id="slideshowContainer">
+            <!-- Slide content will be rendered here -->
+        </div>
+        <div class="slideshow-controls">
+            <button class="slideshow-control-btn" id="slideshowPrev" title="Previous (←)">◀</button>
+            <span class="slideshow-counter" id="slideshowCounter">1 / 1</span>
+            <button class="slideshow-control-btn" id="slideshowNext" title="Next (→)">▶</button>
+            <div class="slideshow-controls-right">
+                <button class="slideshow-control-btn" id="slideshowAutoplay" title="Auto-play">⏵</button>
+                <button class="slideshow-control-btn" id="slideshowExit" title="Exit (Esc)">✕</button>
+            </div>
+        </div>
+        <div class="slideshow-progress">
+            <div class="slideshow-progress-bar" id="slideshowProgressBar"></div>
+        </div>
+    </div>
+
+    <!-- Confirm/Alert Modal -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal confirm-modal">
+            <div class="confirm-modal-header">
+                <span class="confirm-modal-icon" id="confirmModalIcon">⚠️</span>
+                <h2 id="confirmModalTitle">Confirm</h2>
+            </div>
+            <div class="confirm-modal-body">
+                <p id="confirmModalMessage">Are you sure?</p>
+            </div>
+            <div class="confirm-modal-footer">
+                <button class="btn-third" id="confirmModalThird" style="display: none;">Cancel</button>
+                <button class="btn-cancel" id="confirmModalCancel">Discard</button>
+                <button class="btn-confirm" id="confirmModalOk">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal -->
+    <div class="modal-overlay" id="promptModal">
+        <div class="modal prompt-modal">
+            <div class="confirm-modal-header">
+                <span class="confirm-modal-icon" id="promptModalIcon">✏️</span>
+                <h2 id="promptModalTitle">Input</h2>
+            </div>
+            <div class="confirm-modal-body">
+                <p id="promptModalMessage">Enter value:</p>
+                <input type="text" class="prompt-input" id="promptModalInput" placeholder="">
+            </div>
+            <div class="confirm-modal-footer">
+                <button class="btn-cancel" id="promptModalCancel">Cancel</button>
+                <button class="btn-confirm" id="promptModalOk">OK</button>
+            </div>
+        </div>
     </div>
 
     <!-- Export Modal -->
@@ -368,6 +604,14 @@
     <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
     <!-- docx library for creating DOCX files -->
     <script src="https://cdn.jsdelivr.net/npm/docx@8.2.2/build/index.umd.min.js"></script>
+    <!-- JSZip for reading PPTX files -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- PptxGenJS for creating PPTX files -->
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    <!-- html2canvas for rendering HTML to canvas -->
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     
     <!-- Application Modules -->
     <script src="js/state.js"></script>
@@ -378,6 +622,7 @@
     <script src="js/sql.js"></script>
     <script src="js/spreadsheet.js"></script>
     <script src="js/document.js"></script>
+    <script src="js/slides.js"></script>
     <script src="js/file-handler.js"></script>
     <script src="js/main.js"></script>
 </body>

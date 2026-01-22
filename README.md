@@ -1,6 +1,6 @@
-# 🛠️ SuiteTools - Spreadsheet & Document Editor
+# 🛠️ SuiteTools - Spreadsheet, Document & Slides Editor
 
-A developer-friendly, browser-based tool to create, view, edit, and query spreadsheets and documents.
+A developer-friendly, browser-based tool to create, view, edit, and query spreadsheets, documents, and presentations.
 
 ## Features
 
@@ -25,12 +25,40 @@ A developer-friendly, browser-based tool to create, view, edit, and query spread
 - ✅ **Open DOCX Files** - View and edit Word documents
 - ✅ **Export Options** - Save as DOCX, HTML, or plain text
 
+### 📽️ Slides/Presentation Features
+- ✅ **Create New Presentations** - Start with a blank slide
+- ✅ **Import PPTX Files** - Open and view PowerPoint presentations
+- ✅ **Import PPT Files** - Basic support for legacy PowerPoint format
+- ✅ **Edit Slides** - Click on text to edit titles and content
+- ✅ **Slide Styling** - Draggable panel with text color, background colors, gradients, and image upload
+- ✅ **Toggle Layouts** - Switch between title and content layouts
+- ✅ **Slide Backgrounds** - Preserves colors, gradients, and background images
+- ✅ **Slide Navigation** - Use arrow keys or buttons to navigate
+- ✅ **Thumbnail Sidebar** - Quick slide overview and selection
+- ✅ **Add/Delete/Duplicate Slides** - Full slide management
+- ✅ **Move Slides** - Reorder slides with up/down buttons
+- ✅ **Title & Content Layouts** - Support for different slide layouts
+- ✅ **Embedded Images** - Shows images within slides
+- ✅ **Export to PPTX** - Save presentations as PowerPoint files
+- ✅ **Export to PDF** - High-quality PDF with preserved backgrounds and styling
+- ✅ **Keyboard Shortcuts** - Ctrl+S save, Ctrl+D duplicate, arrows navigate
+- ✅ **Fullscreen Slideshow Mode** - Present slides in fullscreen with:
+  - ▶️ Click "Slideshow" button or press F5 to start
+  - ⬅️ ➡️ Arrow keys, Space, PageUp/Down for navigation
+  - 🏠 Home/End to jump to first/last slide
+  - ⏯️ Auto-play mode with 5-second intervals (press P to toggle)
+  - 📊 Progress bar showing presentation progress
+  - 🔢 Slide counter display
+  - 🖱️ Click navigation areas on sides of screen
+  - ⎋ Press Escape or click ✕ to exit
+
 ### 🎨 General Features
 - ✅ **Dark/Light Mode** - Toggle between themes (auto-saves preference)
 - ✅ **Drag & Drop** - Simply drag files onto the page
 - ✅ **Keyboard Shortcuts** - Ctrl+S to save, Ctrl+B/I/U for formatting
 - ✅ **No Upload Required** - Files are processed locally in your browser
 - ✅ **Auto-Save** - Enable auto-save for spreadsheets (when opened via Browse)
+- ✅ **Home Navigation** - Click the SuiteTools logo to return home (with save prompt)
 
 ## SQL Query Examples
 
@@ -142,6 +170,7 @@ Then open your browser to: **http://localhost:PORT**
 │   ├── sql.js          # SQL query engine
 │   ├── spreadsheet.js  # Spreadsheet operations
 │   ├── document.js     # Document editor
+│   ├── slides.js       # Presentation/slides editor
 │   ├── file-handler.js # File import/export
 │   └── main.js         # App initialization & event handlers
 ├── server.py           # Simple Python server
@@ -161,7 +190,8 @@ Then open your browser to: **http://localhost:PORT**
 | `sql.js` | SQL query execution and table management |
 | `spreadsheet.js` | Table rendering, cell editing, row/column operations |
 | `document.js` | Rich text editor for documents |
-| `file-handler.js` | File parsing (CSV, Excel, DOCX) and export |
+| `slides.js` | Presentation viewer and editor with PPTX support |
+| `file-handler.js` | File parsing (CSV, Excel, DOCX, PPTX) and export |
 | `main.js` | Event listeners and app initialization |
 
 ## How It Works
@@ -181,6 +211,17 @@ Then open your browser to: **http://localhost:PORT**
 4. Insert links and images as needed
 5. Save as DOCX, HTML, or plain text
 
+### Presentations/Slides
+1. Click **"✨ Create New → New Presentation"** or drag & drop a PPT/PPTX file
+2. **Click on any text** to edit titles, subtitles, and content
+3. Use the **🎨 button** (top-right of slide) to change background color
+4. Use the **layout button** to toggle between title and content layouts
+5. Add, duplicate, delete, or reorder slides using the toolbar
+6. Use arrow keys (← →) or navigation buttons to move between slides
+7. Press **Ctrl+S** to save, **Ctrl+D** to duplicate current slide
+8. Click **▶️ Slideshow** or press **F5** to present in fullscreen mode
+9. Export as PPTX PowerPoint file
+
 ## Browser Compatibility
 
 Works in all modern browsers:
@@ -193,6 +234,10 @@ All dependencies are loaded from CDN:
 - [AlaSQL](https://alasql.org/) - For SQL query support
 - [Mammoth.js](https://github.com/mwilliamson/mammoth.js) - For reading DOCX files
 - [docx](https://docx.js.org/) - For creating DOCX files
+- [JSZip](https://stuk.github.io/jszip/) - For reading PPTX files
+- [PptxGenJS](https://gitbrent.github.io/PptxGenJS/) - For creating PPTX files
+- [html2canvas](https://html2canvas.hertzen.com/) - For rendering slides to canvas
+- [jsPDF](https://github.com/parallax/jsPDF) - For generating PDF files
 
 ## License
 

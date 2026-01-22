@@ -102,6 +102,22 @@ const DOM = {
         this.bgColorPicker = document.getElementById('bgColorPicker');
         this.insertLinkBtn = document.getElementById('insertLinkBtn');
         this.insertImageBtn = document.getElementById('insertImageBtn');
+        
+        // Slides editor
+        this.slidesContainer = document.getElementById('slidesContainer');
+        this.slidesInfo = document.getElementById('slidesInfo');
+        this.slidesFileName = document.getElementById('slidesFileName');
+        this.slidesFileSize = document.getElementById('slidesFileSize');
+        this.slidesEditIndicator = document.getElementById('slidesEditIndicator');
+        this.slidesSaveBtn = document.getElementById('slidesSaveBtn');
+        this.slidesExportBtn = document.getElementById('slidesExportBtn');
+        this.slidesViewer = document.getElementById('slidesViewer');
+        this.slideCounter = document.getElementById('slideCounter');
+        this.prevSlideBtn = document.getElementById('prevSlideBtn');
+        this.nextSlideBtn = document.getElementById('nextSlideBtn');
+        this.slidesThumbnails = document.getElementById('slidesThumbnails');
+        this.createSlidesBtn = document.getElementById('createSlidesBtn');
+        this.createSlidesLargeBtn = document.getElementById('createSlidesLargeBtn');
     }
 };
 
