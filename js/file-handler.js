@@ -8,12 +8,16 @@ const FileHandler = {
     process(file) {
         const spreadsheetTypes = ['.csv', '.xlsx', '.xls'];
         const documentTypes = ['.doc', '.docx'];
+        const slidesTypes = ['.pptx', '.ppt'];
         const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
         
-        const allValidTypes = [...spreadsheetTypes, ...documentTypes];
+        const allValidTypes = [...spreadsheetTypes, ...documentTypes, ...slidesTypes];
         
         if (!allValidTypes.includes(fileExtension)) {
-            alert('Please upload a supported file (.csv, .xlsx, .xls, .doc, .docx)');
+            Utils.alert('Please upload a supported file (.csv, .xlsx, .xls, .doc, .docx, .ppt, .pptx)', {
+                title: 'Unsupported File',
+                icon: '📁'
+            });
             return;
         }
 
@@ -25,6 +29,7 @@ const FileHandler = {
             DOM.tableContainer.style.display = 'block';
             DOM.tableContainer.innerHTML = '<div class="loading">Processing file</div>';
             DOM.documentContainer.style.display = 'none';
+            DOM.slidesContainer.style.display = 'none';
             
             if (fileExtension === '.csv') {
                 reader.onload = (e) => {
@@ -42,10 +47,21 @@ const FileHandler = {
         } else if (documentTypes.includes(fileExtension)) {
             DOM.documentContainer.style.display = 'flex';
             DOM.tableContainer.style.display = 'none';
+            DOM.slidesContainer.style.display = 'none';
             
             reader.onload = (e) => {
                 const arrayBuffer = e.target.result;
                 DocumentEditor.parse(arrayBuffer, file);
+            };
+            reader.readAsArrayBuffer(file);
+        } else if (slidesTypes.includes(fileExtension)) {
+            DOM.slidesContainer.style.display = 'flex';
+            DOM.tableContainer.style.display = 'none';
+            DOM.documentContainer.style.display = 'none';
+            
+            reader.onload = (e) => {
+                const arrayBuffer = e.target.result;
+                SlidesEditor.parse(arrayBuffer, file);
             };
             reader.readAsArrayBuffer(file);
         }
@@ -57,7 +73,10 @@ const FileHandler = {
         const lines = text.split(/\r\n|\n/).filter(line => line.trim());
         
         if (lines.length === 0) {
-            alert('The file appears to be empty');
+            Utils.alert('The file appears to be empty', {
+                title: 'Empty File',
+                icon: '📄'
+            });
             Spreadsheet.clear();
             return;
         }
@@ -101,7 +120,10 @@ const FileHandler = {
             });
 
             if (state.allSheets.every(sheet => sheet.data.length === 0 && sheet.headers.length === 0)) {
-                alert('The file appears to be empty');
+                Utils.alert('The file appears to be empty', {
+                    title: 'Empty File',
+                    icon: '📊'
+                });
                 Spreadsheet.clear();
                 return;
             }
@@ -115,7 +137,10 @@ const FileHandler = {
                 Spreadsheet.renderSheetTabs();
             }
         } catch (error) {
-            alert('Error reading Excel file. Please try again.');
+            Utils.alert('Error reading Excel file. Please try again.', {
+                title: 'Import Error',
+                icon: '⚠️'
+            });
             Spreadsheet.clear();
             console.error(error);
         }
@@ -145,6 +170,13 @@ const FileHandler = {
                             'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
                             'application/msword': ['.doc']
                         }
+                    },
+                    {
+                        description: 'Presentation Files',
+                        accept: {
+                            'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+                            'application/vnd.ms-powerpoint': ['.ppt']
+                        }
                     }
                 ]
             });
@@ -155,9 +187,15 @@ const FileHandler = {
             if (['.doc', '.docx'].includes(ext)) {
                 AppState.docFileHandle = handle;
                 AppState.fileHandle = null;
+                AppState.slidesFileHandle = null;
+            } else if (['.ppt', '.pptx'].includes(ext)) {
+                AppState.slidesFileHandle = handle;
+                AppState.fileHandle = null;
+                AppState.docFileHandle = null;
             } else {
                 AppState.fileHandle = handle;
                 AppState.docFileHandle = null;
+                AppState.slidesFileHandle = null;
             }
             
             this.process(file);

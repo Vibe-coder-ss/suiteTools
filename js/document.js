@@ -5,13 +5,18 @@
 
 const DocumentEditor = {
     // Create empty document
-    createEmpty() {
+    async createEmpty() {
         const state = AppState;
         
-        if (state.hasUnsavedChanges || state.docHasUnsavedChanges) {
-            if (!confirm('You have unsaved changes. Creating a new document will clear them. Continue?')) {
-                return;
-            }
+        if (state.hasUnsavedChanges || state.docHasUnsavedChanges || state.slidesHasUnsavedChanges) {
+            const confirmed = await Utils.confirm('You have unsaved changes. Creating a new document will clear them. Continue?', {
+                title: 'Unsaved Changes',
+                icon: '⚠️',
+                okText: 'Continue',
+                cancelText: 'Cancel',
+                danger: true
+            });
+            if (!confirmed) return;
         }
         
         Spreadsheet.clearSilent();
@@ -67,7 +72,10 @@ const DocumentEditor = {
             
         } catch (error) {
             console.error('Error parsing document:', error);
-            alert('Error reading document file. Please try again.');
+            Utils.alert('Error reading document file. Please try again.', {
+                title: 'Import Error',
+                icon: '⚠️'
+            });
             Spreadsheet.clear();
         }
     },
@@ -344,7 +352,7 @@ const DocumentEditor = {
     },
 
     // Export document
-    export() {
+    async export() {
         const state = AppState;
         
         if (!state.currentFile) {
@@ -352,7 +360,12 @@ const DocumentEditor = {
             return;
         }
         
-        const format = prompt('Export format:\n1. DOCX (Word)\n2. HTML\n3. TXT (Plain Text)\n\nEnter 1, 2, or 3:', '1');
+        const format = await Utils.prompt('Enter format: 1 = DOCX, 2 = HTML, 3 = TXT', '1', {
+            title: 'Export Document',
+            icon: '⬇️',
+            okText: 'Export',
+            placeholder: 'Enter 1, 2, or 3'
+        });
         
         switch (format) {
             case '1':

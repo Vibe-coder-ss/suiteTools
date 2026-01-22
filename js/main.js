@@ -20,6 +20,12 @@ function setupEventListeners() {
     // Theme toggle
     DOM.themeToggle.addEventListener('click', () => Theme.toggle());
     
+    // App logo click - return to home
+    const appLogo = document.getElementById('appLogo');
+    if (appLogo) {
+        appLogo.addEventListener('click', () => goHome());
+    }
+    
     // Global keyboard shortcuts
     document.addEventListener('keydown', handleGlobalKeydown);
     
@@ -37,6 +43,9 @@ function setupEventListeners() {
     
     // Document handlers
     setupDocumentHandlers();
+    
+    // Slides handlers
+    setupSlidesHandlers();
     
     // Export handlers
     setupExportHandlers();
@@ -59,9 +68,167 @@ function handleGlobalKeydown(e) {
             DocumentEditor.save();
         } else if (AppState.currentMode === 'spreadsheet') {
             FileHandler.save();
+        } else if (AppState.currentMode === 'slides') {
+            SlidesEditor.save();
         }
         return false;
     }
+    
+    // Arrow keys for slides navigation (only when not editing)
+    if (AppState.currentMode === 'slides' && !e.target.matches('input, textarea, [contenteditable]')) {
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            SlidesEditor.prevSlide();
+        } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            SlidesEditor.nextSlide();
+        } else if (e.key === ' ') {
+            e.preventDefault();
+            SlidesEditor.nextSlide();
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+            // Only delete if not in an editable field
+            e.preventDefault();
+            SlidesEditor.deleteSlide();
+        }
+    }
+    
+    // Ctrl+D to duplicate slide
+    if (AppState.currentMode === 'slides' && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        SlidesEditor.duplicateSlide();
+    }
+    
+    // F5 to start slideshow (in slides mode)
+    if (AppState.currentMode === 'slides' && e.key === 'F5') {
+        e.preventDefault();
+        SlidesEditor.startSlideshow();
+    }
+    
+    // Escape to blur current editable element
+    if (e.key === 'Escape' && e.target.matches('[contenteditable]')) {
+        e.target.blur();
+    }
+}
+
+// Check if there are any unsaved changes across all modes
+function hasAnyUnsavedChanges() {
+    return AppState.hasUnsavedChanges || 
+           AppState.docHasUnsavedChanges || 
+           AppState.slidesHasUnsavedChanges;
+}
+
+// Go to home page (show drop zone, hide all editors)
+async function goHome() {
+    // Check for unsaved changes
+    if (hasAnyUnsavedChanges()) {
+        const result = await Utils.confirm(
+            'You have unsaved changes. Would you like to save before returning home?',
+            {
+                title: 'Unsaved Changes',
+                confirmText: 'Save & Go Home',
+                cancelText: 'Discard Changes',
+                showThirdOption: true,
+                thirdOptionText: 'Cancel'
+            }
+        );
+        
+        if (result === 'third' || result === null) {
+            // User clicked Cancel or closed the dialog - stay on current page
+            return;
+        }
+        
+        if (result === true) {
+            // User wants to save first
+            try {
+                if (AppState.currentMode === 'spreadsheet' && AppState.hasUnsavedChanges) {
+                    await FileHandler.save();
+                } else if (AppState.currentMode === 'document' && AppState.docHasUnsavedChanges) {
+                    await DocumentEditor.save();
+                } else if (AppState.currentMode === 'slides' && AppState.slidesHasUnsavedChanges) {
+                    await SlidesEditor.save();
+                }
+            } catch (err) {
+                console.error('Error saving:', err);
+                // Continue to home even if save failed (user already chose to go home)
+            }
+        }
+        // If result === false, user wants to discard changes - continue to home
+    }
+    
+    // Reset the application state
+    resetToHome();
+}
+
+// Reset the app to the home/landing state
+function resetToHome() {
+    // Clear spreadsheet state
+    AppState.data = [];
+    AppState.columns = [];
+    AppState.fileName = null;
+    AppState.fileHandle = null;
+    AppState.hasUnsavedChanges = false;
+    AppState.originalSheetData = [];
+    AppState.allSheets = {};
+    AppState.currentSheetName = null;
+    
+    // Clear document state
+    AppState.docFile = null;
+    AppState.docFileHandle = null;
+    AppState.docHasUnsavedChanges = false;
+    
+    // Clear slides state
+    AppState.slidesData = [];
+    AppState.currentSlideIndex = 0;
+    AppState.slidesFile = null;
+    AppState.slidesFileHandle = null;
+    AppState.slidesHasUnsavedChanges = false;
+    
+    // Reset mode
+    AppState.currentMode = null;
+    
+    // Hide all spreadsheet panels and info bars
+    if (DOM.tableContainer) DOM.tableContainer.style.display = 'none';
+    if (DOM.fileInfo) DOM.fileInfo.style.display = 'none';
+    if (DOM.editIndicator) DOM.editIndicator.style.display = 'none';
+    if (DOM.quickFilterPanel) DOM.quickFilterPanel.style.display = 'none';
+    if (DOM.sqlSection) DOM.sqlSection.style.display = 'none';
+    if (DOM.clearBtn) DOM.clearBtn.style.display = 'none';
+    if (DOM.sheetTabs) DOM.sheetTabs.innerHTML = '';
+    
+    // Hide document panel
+    if (DOM.documentContainer) DOM.documentContainer.style.display = 'none';
+    if (DOM.docInfo) DOM.docInfo.style.display = 'none';
+    if (DOM.docEditIndicator) DOM.docEditIndicator.style.display = 'none';
+    
+    // Hide slides panel
+    if (DOM.slidesContainer) DOM.slidesContainer.style.display = 'none';
+    if (DOM.slidesInfo) DOM.slidesInfo.style.display = 'none';
+    if (DOM.slidesEditIndicator) DOM.slidesEditIndicator.style.display = 'none';
+    
+    // Clear table content
+    const table = document.getElementById('dataTable');
+    if (table) table.innerHTML = '';
+    
+    // Clear document content
+    if (DOM.docEditor) DOM.docEditor.innerHTML = '';
+    
+    // Clear slides content
+    const slideCanvas = document.getElementById('slideCanvas');
+    if (slideCanvas) slideCanvas.innerHTML = '';
+    const thumbnailsContainer = document.getElementById('thumbnailsContainer');
+    if (thumbnailsContainer) thumbnailsContainer.innerHTML = '';
+    
+    // Reset tabs
+    const tabs = document.querySelectorAll('.mode-tab');
+    tabs.forEach(tab => tab.classList.remove('active'));
+    
+    // Show upload section (which contains the drop zone)
+    if (DOM.uploadSection) DOM.uploadSection.style.display = 'flex';
+    
+    // Reset file input
+    if (DOM.fileInput) DOM.fileInput.value = '';
+    
+    Utils.showToast('Returned to home', 'info');
 }
 
 // File handling event listeners
@@ -262,10 +429,14 @@ function setupSQLHandlers() {
     });
     
     // Export SQL results
-    DOM.sqlExportResultsBtn.addEventListener('click', () => {
-        // TODO: Implement SQL results export modal
+    DOM.sqlExportResultsBtn.addEventListener('click', async () => {
         if (AppState.hasSqlResults && AppState.sqlResultData) {
-            const format = prompt('Export format (csv, json, xlsx):', 'csv');
+            const format = await Utils.prompt('Enter export format:', 'csv', {
+                title: 'Export SQL Results',
+                icon: '⬇️',
+                okText: 'Export',
+                placeholder: 'csv, json, or xlsx'
+            });
             if (format) {
                 // Simple export of SQL results
                 const sheet = {
@@ -288,6 +459,61 @@ function setupFilterHandlers() {
     DOM.filterValue.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') Filter.apply();
     });
+}
+
+// Slides event listeners
+function setupSlidesHandlers() {
+    // Navigation buttons
+    if (DOM.prevSlideBtn) {
+        DOM.prevSlideBtn.addEventListener('click', () => SlidesEditor.prevSlide());
+    }
+    if (DOM.nextSlideBtn) {
+        DOM.nextSlideBtn.addEventListener('click', () => SlidesEditor.nextSlide());
+    }
+    
+    // Save and export buttons
+    if (DOM.slidesSaveBtn) {
+        DOM.slidesSaveBtn.addEventListener('click', () => SlidesEditor.save());
+    }
+    if (DOM.slidesExportBtn) {
+        DOM.slidesExportBtn.addEventListener('click', () => SlidesEditor.export());
+    }
+    
+    // Slideshow button
+    const slideshowBtn = document.getElementById('slideshowBtn');
+    if (slideshowBtn) {
+        slideshowBtn.addEventListener('click', () => SlidesEditor.startSlideshow());
+    }
+    
+    // Add slide button
+    const addSlideBtn = document.getElementById('addSlideBtn');
+    if (addSlideBtn) {
+        addSlideBtn.addEventListener('click', () => SlidesEditor.addSlide());
+    }
+    
+    // Duplicate slide button
+    const duplicateSlideBtn = document.getElementById('duplicateSlideBtn');
+    if (duplicateSlideBtn) {
+        duplicateSlideBtn.addEventListener('click', () => SlidesEditor.duplicateSlide());
+    }
+    
+    // Move slide up button
+    const moveSlideUpBtn = document.getElementById('moveSlideUpBtn');
+    if (moveSlideUpBtn) {
+        moveSlideUpBtn.addEventListener('click', () => SlidesEditor.moveSlideUp());
+    }
+    
+    // Move slide down button
+    const moveSlideDownBtn = document.getElementById('moveSlideDownBtn');
+    if (moveSlideDownBtn) {
+        moveSlideDownBtn.addEventListener('click', () => SlidesEditor.moveSlideDown());
+    }
+    
+    // Delete slide button
+    const deleteSlideBtn = document.getElementById('deleteSlideBtn');
+    if (deleteSlideBtn) {
+        deleteSlideBtn.addEventListener('click', () => SlidesEditor.deleteSlide());
+    }
 }
 
 // Document editor event listeners
@@ -333,8 +559,13 @@ function setupDocumentHandlers() {
     });
     
     // Insert link
-    DOM.insertLinkBtn.addEventListener('click', () => {
-        const url = prompt('Enter URL:', 'https://');
+    DOM.insertLinkBtn.addEventListener('click', async () => {
+        const url = await Utils.prompt('Enter URL:', 'https://', {
+            title: 'Insert Link',
+            icon: '🔗',
+            okText: 'Insert',
+            placeholder: 'https://example.com'
+        });
         if (url) {
             document.execCommand('createLink', false, url);
             DOM.docEditor.focus();
@@ -343,8 +574,13 @@ function setupDocumentHandlers() {
     });
     
     // Insert image
-    DOM.insertImageBtn.addEventListener('click', () => {
-        const url = prompt('Enter image URL:', 'https://');
+    DOM.insertImageBtn.addEventListener('click', async () => {
+        const url = await Utils.prompt('Enter image URL:', 'https://', {
+            title: 'Insert Image',
+            icon: '🖼️',
+            okText: 'Insert',
+            placeholder: 'https://example.com/image.jpg'
+        });
         if (url) {
             document.execCommand('insertImage', false, url);
             DOM.docEditor.focus();
@@ -433,9 +669,15 @@ function setupCreateHandlers() {
         DocumentEditor.createEmpty();
     });
     
+    DOM.createSlidesBtn.addEventListener('click', () => {
+        DOM.createDropdownMenu.classList.remove('show');
+        SlidesEditor.createEmpty();
+    });
+    
     // Large buttons
     DOM.createNewLargeBtn.addEventListener('click', () => Spreadsheet.createEmpty());
     DOM.createDocLargeBtn.addEventListener('click', () => DocumentEditor.createEmpty());
+    DOM.createSlidesLargeBtn.addEventListener('click', () => SlidesEditor.createEmpty());
 }
 
 // Export modal functions
@@ -515,7 +757,10 @@ function confirmExport() {
             .map(cb => parseInt(cb.value));
         
         if (sheetsToExport.length === 0) {
-            alert('Please select at least one sheet to export');
+            Utils.alert('Please select at least one sheet to export', {
+                title: 'No Sheets Selected',
+                icon: '📊'
+            });
             return;
         }
     }

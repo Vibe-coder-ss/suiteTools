@@ -135,6 +135,245 @@ const Utils = {
         result.push(current.trim());
 
         return result;
+    },
+
+    // Custom confirm dialog (returns Promise)
+    // Returns: true (OK/confirm), false (cancel/discard), 'third' (third button), null (overlay/escape)
+    confirm(message, options = {}) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirmModal');
+            const titleEl = document.getElementById('confirmModalTitle');
+            const messageEl = document.getElementById('confirmModalMessage');
+            const iconEl = document.getElementById('confirmModalIcon');
+            const okBtn = document.getElementById('confirmModalOk');
+            const cancelBtn = document.getElementById('confirmModalCancel');
+            const thirdBtn = document.getElementById('confirmModalThird');
+            const modalContent = modal.querySelector('.confirm-modal');
+            
+            // Set content
+            titleEl.textContent = options.title || 'Confirm';
+            messageEl.textContent = message;
+            iconEl.textContent = options.icon || '⚠️';
+            okBtn.textContent = options.confirmText || options.okText || 'OK';
+            cancelBtn.textContent = options.cancelText || 'Cancel';
+            
+            // Set button style
+            okBtn.className = 'btn-confirm';
+            if (options.danger) {
+                okBtn.classList.add('danger');
+            } else if (options.success) {
+                okBtn.classList.add('success');
+            }
+            
+            // Handle cancel button style for three-option dialogs
+            cancelBtn.className = 'btn-cancel';
+            if (options.showThirdOption) {
+                cancelBtn.classList.add('warning');
+            }
+            
+            // Handle third button (e.g., "Cancel" for a Save/Discard/Cancel dialog)
+            if (options.showThirdOption && options.thirdOptionText) {
+                thirdBtn.style.display = 'block';
+                thirdBtn.textContent = options.thirdOptionText;
+            } else {
+                thirdBtn.style.display = 'none';
+            }
+            
+            // Remove alert-only class
+            modalContent.classList.remove('alert-only');
+            
+            // Show modal
+            modal.classList.add('show');
+            okBtn.focus();
+            
+            // Cleanup function
+            const cleanup = () => {
+                modal.classList.remove('show');
+                thirdBtn.style.display = 'none';
+                cancelBtn.className = 'btn-cancel';
+                okBtn.removeEventListener('click', handleOk);
+                cancelBtn.removeEventListener('click', handleCancel);
+                thirdBtn.removeEventListener('click', handleThird);
+                document.removeEventListener('keydown', handleKeydown);
+            };
+            
+            // Handlers
+            const handleOk = () => {
+                cleanup();
+                resolve(true);
+            };
+            
+            const handleCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+            
+            const handleThird = () => {
+                cleanup();
+                resolve('third');
+            };
+            
+            const handleKeydown = (e) => {
+                if (e.key === 'Escape') {
+                    cleanup();
+                    resolve(options.showThirdOption ? 'third' : null);
+                } else if (e.key === 'Enter') {
+                    handleOk();
+                }
+            };
+            
+            // Attach listeners
+            okBtn.addEventListener('click', handleOk);
+            cancelBtn.addEventListener('click', handleCancel);
+            thirdBtn.addEventListener('click', handleThird);
+            document.addEventListener('keydown', handleKeydown);
+            
+            // Close on overlay click
+            const handleOverlayClick = (e) => {
+                if (e.target === modal) {
+                    cleanup();
+                    resolve(options.showThirdOption ? 'third' : null);
+                }
+            };
+            modal.addEventListener('click', handleOverlayClick, { once: true });
+        });
+    },
+
+    // Custom alert dialog (returns Promise)
+    alert(message, options = {}) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('confirmModal');
+            const titleEl = document.getElementById('confirmModalTitle');
+            const messageEl = document.getElementById('confirmModalMessage');
+            const iconEl = document.getElementById('confirmModalIcon');
+            const okBtn = document.getElementById('confirmModalOk');
+            const modalContent = modal.querySelector('.confirm-modal');
+            
+            // Set content
+            titleEl.textContent = options.title || 'Alert';
+            messageEl.textContent = message;
+            iconEl.textContent = options.icon || 'ℹ️';
+            okBtn.textContent = options.okText || 'OK';
+            
+            // Set button style
+            okBtn.className = 'btn-confirm';
+            if (options.danger) {
+                okBtn.classList.add('danger');
+            } else if (options.success) {
+                okBtn.classList.add('success');
+            }
+            
+            // Add alert-only class (hides cancel button)
+            modalContent.classList.add('alert-only');
+            
+            // Show modal
+            modal.classList.add('show');
+            okBtn.focus();
+            
+            // Cleanup function
+            const cleanup = () => {
+                modal.classList.remove('show');
+                okBtn.removeEventListener('click', handleOk);
+                document.removeEventListener('keydown', handleKeydown);
+            };
+            
+            // Handlers
+            const handleOk = () => {
+                cleanup();
+                resolve();
+            };
+            
+            const handleKeydown = (e) => {
+                if (e.key === 'Escape' || e.key === 'Enter') {
+                    handleOk();
+                }
+            };
+            
+            // Attach listeners
+            okBtn.addEventListener('click', handleOk);
+            document.addEventListener('keydown', handleKeydown);
+            
+            // Close on overlay click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) handleOk();
+            }, { once: true });
+        });
+    },
+
+    // Custom prompt dialog (returns Promise)
+    prompt(message, defaultValue = '', options = {}) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('promptModal');
+            const titleEl = document.getElementById('promptModalTitle');
+            const messageEl = document.getElementById('promptModalMessage');
+            const iconEl = document.getElementById('promptModalIcon');
+            const inputEl = document.getElementById('promptModalInput');
+            const okBtn = document.getElementById('promptModalOk');
+            const cancelBtn = document.getElementById('promptModalCancel');
+            
+            // Set content
+            titleEl.textContent = options.title || 'Input';
+            messageEl.textContent = message;
+            iconEl.textContent = options.icon || '✏️';
+            okBtn.textContent = options.okText || 'OK';
+            cancelBtn.textContent = options.cancelText || 'Cancel';
+            inputEl.value = defaultValue;
+            inputEl.placeholder = options.placeholder || '';
+            
+            // Show modal
+            modal.classList.add('show');
+            
+            // Focus and select input
+            setTimeout(() => {
+                inputEl.focus();
+                inputEl.select();
+            }, 100);
+            
+            // Cleanup function
+            const cleanup = () => {
+                modal.classList.remove('show');
+                okBtn.removeEventListener('click', handleOk);
+                cancelBtn.removeEventListener('click', handleCancel);
+                inputEl.removeEventListener('keydown', handleInputKeydown);
+                document.removeEventListener('keydown', handleKeydown);
+            };
+            
+            // Handlers
+            const handleOk = () => {
+                const value = inputEl.value;
+                cleanup();
+                resolve(value);
+            };
+            
+            const handleCancel = () => {
+                cleanup();
+                resolve(null);
+            };
+            
+            const handleInputKeydown = (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleOk();
+                }
+            };
+            
+            const handleKeydown = (e) => {
+                if (e.key === 'Escape') {
+                    handleCancel();
+                }
+            };
+            
+            // Attach listeners
+            okBtn.addEventListener('click', handleOk);
+            cancelBtn.addEventListener('click', handleCancel);
+            inputEl.addEventListener('keydown', handleInputKeydown);
+            document.addEventListener('keydown', handleKeydown);
+            
+            // Close on overlay click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) handleCancel();
+            }, { once: true });
+        });
     }
 };
 

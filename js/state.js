@@ -44,6 +44,13 @@ const AppState = {
     originalDocContent: '',
     docFileHandle: null,
     
+    // Slides state
+    slidesHasUnsavedChanges: false,
+    slidesData: [],           // Array of slide objects
+    currentSlideIndex: 0,     // Currently displayed slide
+    slidesFileHandle: null,
+    slidesFile: null,
+    
     // Reset spreadsheet state
     resetSpreadsheet() {
         this.currentData = [];
@@ -71,11 +78,21 @@ const AppState = {
         this.docFileHandle = null;
     },
     
+    // Reset slides state
+    resetSlides() {
+        this.slidesHasUnsavedChanges = false;
+        this.slidesData = [];
+        this.currentSlideIndex = 0;
+        this.slidesFileHandle = null;
+        this.slidesFile = null;
+    },
+    
     // Reset all state
     resetAll() {
         this.currentMode = 'none';
         this.resetSpreadsheet();
         this.resetDocument();
+        this.resetSlides();
     }
 };
 

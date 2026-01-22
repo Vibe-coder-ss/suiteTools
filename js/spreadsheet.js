@@ -5,13 +5,18 @@
 
 const Spreadsheet = {
     // Create empty spreadsheet
-    createEmpty() {
+    async createEmpty() {
         const state = AppState;
         
-        if (state.hasUnsavedChanges || state.docHasUnsavedChanges) {
-            if (!confirm('You have unsaved changes. Creating a new spreadsheet will clear them. Continue?')) {
-                return;
-            }
+        if (state.hasUnsavedChanges || state.docHasUnsavedChanges || state.slidesHasUnsavedChanges) {
+            const confirmed = await Utils.confirm('You have unsaved changes. Creating a new spreadsheet will clear them. Continue?', {
+                title: 'Unsaved Changes',
+                icon: '⚠️',
+                okText: 'Continue',
+                cancelText: 'Cancel',
+                danger: true
+            });
+            if (!confirmed) return;
         }
         
         // Clear any existing data
@@ -206,7 +211,7 @@ const Spreadsheet = {
     },
 
     // Add new column
-    addColumn() {
+    async addColumn() {
         const state = AppState;
         
         if (state.allSheets.length === 0) {
@@ -222,7 +227,12 @@ const Spreadsheet = {
         const newColIndex = state.headers.length;
         const newColName = `Column ${String.fromCharCode(65 + (newColIndex % 26))}${newColIndex >= 26 ? Math.floor(newColIndex / 26) : ''}`;
         
-        const colName = prompt('Enter column name:', newColName);
+        const colName = await Utils.prompt('Enter column name:', newColName, {
+            title: 'Add Column',
+            icon: '➕',
+            okText: 'Add',
+            placeholder: 'Column name'
+        });
         if (colName === null) return;
         
         const finalColName = colName.trim() || newColName;
@@ -510,11 +520,18 @@ const Spreadsheet = {
     },
 
     // Undo all changes
-    undoAllChanges() {
+    async undoAllChanges() {
         const state = AppState;
         if (!state.hasUnsavedChanges || state.originalSheetData.length === 0) return;
         
-        if (!confirm('Undo all changes and restore original data?')) return;
+        const confirmed = await Utils.confirm('Undo all changes and restore original data?', {
+            title: 'Undo All Changes',
+            icon: '↩️',
+            okText: 'Undo All',
+            cancelText: 'Cancel',
+            danger: true
+        });
+        if (!confirmed) return;
         
         state.allSheets = state.originalSheetData.map(sheet => ({
             name: sheet.name,
@@ -715,6 +732,12 @@ const Spreadsheet = {
         state.originalDocContent = '';
         state.docFileHandle = null;
         
+        state.slidesHasUnsavedChanges = false;
+        state.slidesData = [];
+        state.currentSlideIndex = 0;
+        state.slidesFileHandle = null;
+        state.slidesFile = null;
+        
         DOM.autosaveCheckbox.checked = false;
         DOM.quickFilterPanel.style.display = 'none';
         DOM.filterToggleBtn.classList.remove('active');
@@ -725,6 +748,7 @@ const Spreadsheet = {
         
         DOM.editIndicator.style.display = 'none';
         DOM.docEditIndicator.style.display = 'none';
+        if (DOM.slidesEditIndicator) DOM.slidesEditIndicator.style.display = 'none';
         DOM.saveStatus.style.display = 'none';
         DOM.sqlStatus.className = 'sql-status';
         DOM.sqlExamplesPanel.style.display = 'none';
@@ -734,16 +758,23 @@ const Spreadsheet = {
         DOM.sheetTabs.innerHTML = '';
         DOM.docInfo.style.display = 'none';
         DOM.documentContainer.style.display = 'none';
+        if (DOM.slidesInfo) DOM.slidesInfo.style.display = 'none';
+        if (DOM.slidesContainer) DOM.slidesContainer.style.display = 'none';
     },
 
     // Clear data with confirmation
-    clear() {
+    async clear() {
         const state = AppState;
         
-        if (state.hasUnsavedChanges || state.docHasUnsavedChanges) {
-            if (!confirm('You have unsaved changes. Are you sure you want to clear?')) {
-                return;
-            }
+        if (state.hasUnsavedChanges || state.docHasUnsavedChanges || state.slidesHasUnsavedChanges) {
+            const confirmed = await Utils.confirm('You have unsaved changes. Are you sure you want to clear?', {
+                title: 'Unsaved Changes',
+                icon: '⚠️',
+                okText: 'Clear',
+                cancelText: 'Cancel',
+                danger: true
+            });
+            if (!confirmed) return;
         }
         
         this.clearSilent();
@@ -752,9 +783,11 @@ const Spreadsheet = {
         
         DOM.fileInfo.style.display = 'none';
         DOM.docInfo.style.display = 'none';
+        if (DOM.slidesInfo) DOM.slidesInfo.style.display = 'none';
         DOM.sqlSection.style.display = 'none';
         DOM.tableContainer.style.display = 'none';
         DOM.documentContainer.style.display = 'none';
+        if (DOM.slidesContainer) DOM.slidesContainer.style.display = 'none';
         DOM.uploadSection.style.display = 'flex';
         DOM.clearBtn.style.display = 'none';
     }
